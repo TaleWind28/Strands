@@ -177,62 +177,52 @@ void Load_Matrix(Matrix m, char* path_to_file){
     return;
 }
 
-int Validate_Word(Matrix m,Charmap* map, char* word){
-    int j=0,i =0,retvalue;
-    int** old_pos = (int**)malloc(2*sizeof(int*));
-    old_pos[0] = (int*)malloc(2*sizeof(int));
-    old_pos[1] = (int*)malloc(2*sizeof(int));
-    /*CREO UNA MAPPA PER TENER TRACCIA DI COME MI SPOSTO SULLA MATRICE*/
-    Charmap matches;
-    /*OCCORRENZA È LA POSIZIONE DEL PENULTIMO INSERIMENTO*/
-    matches.occorrenza = 0;
-    /*SIZE È LA POSIZIONE DELL'ULTIMO ELEMENTO INSERITO*/
-    matches.size = 0;
-    matches.row = (int*)malloc(1*sizeof(int));
-    matches.column = (int*)malloc(1*sizeof(int));
-
-    if (strlen(word)<4) return -1;
-    /*CONTROLLO CHE LA PAROLA IN INPUT SIA COMPONIBILE CON QUESTA MATRICE*/
-    if(Is_Composable(m,word)!=0)return -1;
+// int Validate_Word(Matrix m,Charmap* map, char* word){
+//     int j=0,i =0,retvalue;
+//     int** old_pos = (int**)malloc(2*sizeof(int*));
+//     old_pos[0] = (int*)malloc(2*sizeof(int));
+//     old_pos[1] = (int*)malloc(2*sizeof(int));
+//     if (strlen(word)<4) return -1;
+//     /*CONTROLLO CHE LA PAROLA IN INPUT SIA COMPONIBILE CON QUESTA MATRICE*/
+//     if(Is_Composable(m,word)!=0)return -1;
     
-    /*CREO LA MAPPATURA DEL PRIMO CARATTERE DELLA PAROLA*/
-    Charmap first_char = Find_Charmap_Element(m,word[0]);
-    //printf("strlen:%ld\n",strlen(word));
-    while(1){
-        //printf("while\n");
-        /*SE SONO ALL'ULTIMO CARATTERE DELLA STRINGA HO FINITO*/
-        if (i+1 == strlen(word)){
-            return 0;
-        };
-        j = i+1;
-        first_char.size = m.size;
-        /*CERCO LA SECONDA CHARMAP*/
-        Charmap second_char = Find_Charmap_Element(m,word[j]);
-        /*CONTROLLO SE I CARATTERI SONO VICINI*/
-        first_char = Is_Charmap_Reachable(first_char,second_char,second_char);
-        /*OCCORRENZA 0 VUOL DIRE CHE COMPARANDO LE DUE MAPPE NON HO AVUTO NESSUN MATCH*/
-        if (first_char.occorrenza == 0)return -1;
-        //Insert_Matches();
-        //Check_Matches();
-        /*ITERO*/
-        i++;
-    }
-    return 0;
-}
+//     /*CREO LA MAPPATURA DEL PRIMO CARATTERE DELLA PAROLA*/
+//     Charmap first_char = Find_Charmap_Element(m,word[0]);
+//     //printf("strlen:%ld\n",strlen(word));
+//     while(1){
+//         //printf("while\n");
+//         /*SE SONO ALL'ULTIMO CARATTERE DELLA STRINGA HO FINITO*/
+//         if (i+1 == strlen(word)){
+//             return 0;
+//         };
+//         j = i+1;
+//         first_char.size = m.size;
+//         /*CERCO LA SECONDA CHARMAP*/
+//         Charmap second_char = Find_Charmap_Element(m,word[j]);
+//         /*CONTROLLO SE I CARATTERI SONO VICINI*/
+//         first_char = Is_Charmap_Reachable(first_char,second_char,second_char);
+//         /*OCCORRENZA 0 VUOL DIRE CHE COMPARANDO LE DUE MAPPE NON HO AVUTO NESSUN MATCH*/
+//         if (first_char.occorrenza == 0)return -1;
+//         //Insert_Matches();
+//         //Check_Matches();
+//         /*ITERO*/
+//         i++;
+//     }
+//     return 0;
+// }
 
-void Insert_Matches(Charmap mappa, Charmap matches){
-    int new_size;
-    matches.size+=mappa.occorrenza;
-    for(int i = matches.occorrenza;i<matches.size;i++){
-        for(int j = 0;j<mappa.occorrenza;j++){
-            if ((mappa.column[j] == matches.column[i])&&((mappa.row[j]+1 != matches.row[i])||(mappa.row[j]-1 != matches.row[i]))){
+// void Insert_Matches(Charmap mappa, Charmap matches){
+//     matches.size+=mappa.occorrenza;
+//     for(int i = matches.occorrenza;i<matches.size;i++){
+//         for(int j = 0;j<mappa.occorrenza;j++){
+//             if ((mappa.column[j] == matches.column[i])&&((mappa.row[j]+1 != matches.row[i])||(mappa.row[j]-1 != matches.row[i]))){
                 
-            }
-        }
+//             }
+//         }
         
-    }
-    return;
-}
+//     }
+//     return;
+// }
 
 
 
@@ -432,8 +422,8 @@ int Print_Position_List(Position_List cl){
 
 int Validate(Matrix m, char* word){
     Position_List l = NULL;
-    int j = 1;int k = 0;
-    int actual_pos[2][2];
+    //int j = 1;int k = 0;
+    //int actual_pos[2][2];
     int next_pos[2];
     /*controllo di avere una stringa lunga almeno 4 caratteri*/
     if (strlen(word)<4 ) return -1;
