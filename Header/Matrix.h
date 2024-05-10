@@ -62,9 +62,6 @@ int Is_Composable(Matrix m,char* word);
 /*CONTROLLO SE UN ELEMENTO È RAGGIUNGIBILE*/
 int Is_Reachable(Matrix m,int* old_pos,int* pos);
 
-// /*CONTROLLA CHE UNA PAROLA SIA COMPONIBILE NELLA MATRICE DATA IN INPUT*/
-int Validate_Word(Matrix m,Charmap* map, char* word);
-
 /*TROVA UN ELEMENTO DELLA MATRICE IN BASE ALLA MAPPATURA*/
 Charmap Find_Charmap_Element(Matrix m,char x);
 
@@ -106,8 +103,15 @@ int Find_Compose(Position_List pl, int r, int c);
 
 /*STAMPO LA LISTA*/
 int Print_Position_List(Position_List pl);
+
 /*nuova validate*/
 int Validate(Matrix m, char* word);
 
+/*STEP PER CONVALIDARE LE PAROLE*/
+void Validation_Step(Matrix m,Position_List* l,char * word);
+
 /*distruggo una lista*/
 int Delete_Position_List(Position_List* l);
+
+/*CERCO UN ELEMENTO ALL'INTERNO DELLA LISTA*/
+int Position_List_Find(Position_List cl, int r, int c);
