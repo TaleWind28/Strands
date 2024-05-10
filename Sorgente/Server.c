@@ -36,7 +36,7 @@ int main(int argc, char* argv[]){
         exit(EXIT_FAILURE);
     }
     /*INIZIALIZZAZIONE VARIABILI IN BASE ALL'ARGOMENTO DELLA RIGA DI COMANDO*/
-    //char* HOST = argv[1];
+    char* HOST = argv[1];
     int PORT = atoi(argv[2]);
 
     /*dichiarazione variabili*/
@@ -52,9 +52,8 @@ int main(int argc, char* argv[]){
     server_address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     server_address.sin_port = htons(PORT);
 
-    // /*PROVA INTERNET*/
-    // server_address.sin_addr.s_addr = htonl(INADDR_ANY);
-    // server_address.sin_port = htons(20000);
+    /*PROVA INTERNET*/
+    //server_address.sin_addr.s_addr = inet_addr(HOST);
 
 
     
@@ -137,14 +136,13 @@ void Play(int client_fd){
         //char** input = (char**)malloc(10*sizeof(char*));
         char* input = (char*)malloc(1024*sizeof(char));
         /*LETTURA DAL CLIENT*/
-        SYSC(n_read,read(client_fd,input,sizeof(input)),"nella lettura dal client");
+        SYSC(n_read,read(client_fd,input,1024),"nella lettura dal client");
+        realloc(input,strlen(input)*sizeof(char));
         /*TOLGO IL \n DALLA STRINGA RICEVUTA IN INPUT*/
-        char*token = (char*)malloc(buff_size*sizeof(char));
-        token = strtok(input,"\n");
+        char*token = strtok(input,"\n");
         /*LANCIO IL PIGNOLER*/
         SYST(retvalue,pthread_create(&thread_pignoler,NULL,Pignoler,token),"nella creazione del pignoler");
         /*CONTROLLO DELLA VALIDITà DELLA PAROLA*/
-        //if (Validate_Word(playing_matrix,playing_matrix.map,token)==0){
         if (Validate(playing_matrix,token)==0){
             /*ASPETTO IL PIGNOLER*/
             SYST(retvalue,pthread_join(thread_pignoler,(void**)&exit_val),"nell'attesa del pignoler con parola valida");

@@ -81,16 +81,16 @@ run-server:
 	@$(SERVER_RUN)
 
 run-server2:
-	@echo server port $(PORT)
+	@echo server port $(PORT2)
 	@$(SERVER_RUN2)
 	
 test-client:
 	@echo client online
-	$(CLIENT_RUN)
+	@$(CLIENT_RUN)
 
 test-client2:
 	@echo client online
-	$(CLIENT_RUN2)
+	@$(CLIENT_RUN2)
 
 debug-client:
 	@echo client online
