@@ -42,11 +42,11 @@ int main(int argc,char* argv[]){
     //Print_FCE(next_pos,'o');
     //Print_CharMap(matrix.map);
     //int res1 = 3;
-    int res1 = Is_Composable(matrix,word);
-    if (res1 == 0){
-        int res = Validate_Word(matrix,matrix.map,word);
-        printf("validate:%d\n",res);
-    }
+    // int res1 = Is_Composable(matrix,word);
+    // if (res1 == 0){
+    //     int res = Validate_Word(matrix,matrix.map,word);
+    //     printf("validate:%d\n",res);
+    // }
     // Position_List l = NULL;
     // Position_List_Push(&l,0,0);
     // Position_List_Push(&l,1,0);

@@ -54,7 +54,9 @@ int main(int argc, char* argv[]){
 }
 
 void Play(int client_fd){
-    int retvalue;char matrice[buff_size];
+    /*DICHIARAZIONE VARIABILI*/
+    int retvalue,i = 0;ssize_t n_read;char score[buff_size],matrice[buff_size];
+    
     /*LEGGO LA MATRICE PASSATA DAL SERVER*/
     SYSC(retvalue,read(client_fd,matrice,buff_size),"nella lettura della matrice");
     /*CREO LA MATRICE DA FAR UTILIZZARE AL CLIENT*/
@@ -65,27 +67,29 @@ void Play(int client_fd){
     Build_Charmap(client_matrix);
     /*STAMPO LA MATRICE A SCHERMO*/
     Print_Matrix(client_matrix);
-    writef(retvalue,"Inserisci una parola che hai letto nella matrice\t");
-    ssize_t n_read;
-    char score[buff_size];
-    for(int i =0;i<5;i++){
+    /*IL CLIENT PUO INIZIARE A GIOCARE*/
+    while (1){
+        /*TERMINAZIONE DELLA PARTITA DA CAMBIARE QUANDO AVRò LA SPECIFICA*/
+        if (i == 5)break;
+        /*STAMPA A SCHERMO*/
+        writef(retvalue,"Inserisci una parola\n");
+        /*OTTIMIZZARE*/
         char** input = (char**)malloc(buff_size*(sizeof(char*)));
         input[i] =(char*)malloc(buff_size*(sizeof(char)));
         /*ASPETTO UN INPUT DALL'UTENTE*/
         SYSC(n_read,read(STDIN_FILENO,input[i],buff_size),"nella lettura dell'input del cliente");
+        /*CONTROLLO SE L'INPUT È ACCETTABILE*/
         if(strlen(input[i]) == 1){
             input[i] = "lol\n";
             n_read = strlen(input[i]);
         }
-
         /*SCRIVO SUL FILE DESCRIPTOR CONDIVISO COL SERVER IL MESSAGGIO DA MANDARE*/
         SYSC(retvalue,write(client_fd,input[i],n_read),"nella write");
         /*ASPETTO CHE MI VENGA COMUNICATO IL PUNTEGGIO*/
         SYSC(n_read,read(client_fd,score,buff_size),"nella lettura del punteggio");
         /*SCRIVO A VIDEO IL PUNTEGGIO*/
-        //writef(retvalue,"ok");
         SYSC(retvalue,write(STDOUT_FILENO,score,n_read),"nella comunicazione del punteggio a video");
-
+        i++;
     }
     SYSC(n_read,read(client_fd,score,buff_size),"nella lettura del punteggio totale");
     return;
