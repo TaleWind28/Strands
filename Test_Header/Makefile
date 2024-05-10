@@ -6,6 +6,7 @@ CFLAGS = -Wall -pedantic -pthread -g
 
 #Directories
 HEADER = ../Header/
+SORGENTE = ../Sorgente/
 
 #Header
 HDRS = $(HEADER)$(MATRICI).h
@@ -15,7 +16,7 @@ MATRICI = Matrix
 TEST = test_matrix
 
 #File Sorgente
-SRCM = $(MATRICI).c
+SRCM = $(SORGENTE)$(MATRICI).c
 SRCT = $(TEST).c
 
 #File Oggetto
