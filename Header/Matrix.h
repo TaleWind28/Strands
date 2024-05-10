@@ -3,10 +3,10 @@
 /*STRUTTURA DATI CHE PERMETTE DI CERCARE PIù VELOCEMENTE TUTTE LE OCCORRENZE DI UN CARATTERE NELLA MATRICE*/
 typedef struct{
     char carattere;
-    int occorrenza;
-    int* row;
-    int* column;
-    int size;
+    int occorrenza; //Size(row)
+    int* row;       //Position_List row
+    int* column;    //Position_List column
+    int size;       //Size(row)
 }Charmap;
 
 /*STRUTTURA DATI CHE SEMPLIFICA IL LAVORO CON LE MATRICI*/
@@ -18,7 +18,7 @@ typedef struct{
     Charmap* map;
 }Matrix;
 
-/*COMPOSE_NODE*/
+/*NODO DI UNA LISTA CHE MEMORIZZA LE POSIZIONI DELLA MATRICE*/
 typedef struct p{
     int row;
     int col;
@@ -56,33 +56,17 @@ Charmap* Adjust_Charmap(Charmap* map);
 /*RENDO LA MATRICE UNA STRINGA*/
 void Stringify_Matrix(Matrix m,char* string);
 
-/*CONTROLLO CHE IL NUMERO DI OCCORRENZE DEI CARATTERI SIA UGUALE A QUELLO DELLA MATRICE PER INIZIARE A VALIDARE AL PAROLA*/
-int Is_Composable(Matrix m,char* word);
-
 /*CONTROLLO SE UN ELEMENTO È RAGGIUNGIBILE*/
 int Is_Reachable(Matrix m,int* old_pos,int* pos);
 
 /*TROVA UN ELEMENTO DELLA MATRICE IN BASE ALLA MAPPATURA*/
 Charmap Find_Charmap_Element(Matrix m,char x);
 
-/*CONTROLLO SE DUE ELEMENTI DELLA MATRICE SONO RAGGIUNGIBILI*/
-Charmap Is_Charmap_Reachable(Charmap m1,Charmap m2,Charmap matches);
+/*CONVALIDA UNA PAROLA IN BASE ALLA MATRICE*/
+int Validate(Matrix m, char* word);
 
-
-/*STAMPE A VIDEO DELLE STRUTTURE DATI O DELLE FUNZIONI SOPRA DEFINITE*/
-
-/*STAMPA LA MATRICE*/
-void Print_Matrix(Matrix m);
-
-/*STAMPA A SCHERMO UNA MAPPATURA DI CARATTERI*/
-void Print_CharMap(Charmap* m);
-
-/*STAMPO IL VALORE DI RITORNO DI FIND_CHARMAP_ELEMENT*/
-void Print_FCE(Charmap position,char carattere);
-
-
-/*CONTROLLO SE HO UN MATCH SU RIGHE E COLONNE*/
-int Is_Matching(int row, int col, Charmap map);
+/*STEP PER CONVALIDARE LE PAROLE*/
+void Validation_Step(Matrix m,Position_List* l,char * word);
 
 /*COMPOSABLE LIST*/
 
@@ -99,19 +83,21 @@ int Position_List_Size(Position_List pl);
 int* Position_List_Peek(Position_List pl);
 
 /*CERCO UN ELEMENTO ALL'INTERNO DELLA LISTA*/
-int Find_Compose(Position_List pl, int r, int c);
+int Position_List_Find(Position_List cl, int r, int c);
 
 /*STAMPO LA LISTA*/
 int Print_Position_List(Position_List pl);
 
-/*nuova validate*/
-int Validate(Matrix m, char* word);
-
-/*STEP PER CONVALIDARE LE PAROLE*/
-void Validation_Step(Matrix m,Position_List* l,char * word);
-
-/*distruggo una lista*/
+/*DISTRUGGO UNA LISTA*/
 int Delete_Position_List(Position_List* l);
 
-/*CERCO UN ELEMENTO ALL'INTERNO DELLA LISTA*/
-int Position_List_Find(Position_List cl, int r, int c);
+/*STAMPE A VIDEO DELLE STRUTTURE DATI O DELLE FUNZIONI SOPRA DEFINITE*/
+
+/*STAMPA LA MATRICE*/
+void Print_Matrix(Matrix m);
+
+/*STAMPA A SCHERMO UNA MAPPATURA DI CARATTERI*/
+void Print_CharMap(Charmap* m);
+
+/*STAMPO IL VALORE DI RITORNO DI FIND_CHARMAP_ELEMENT*/
+void Print_FCE(Charmap position,char carattere);
