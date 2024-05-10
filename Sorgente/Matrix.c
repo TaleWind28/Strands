@@ -29,8 +29,6 @@ Matrix Create_Matrix(int rows, int columns){
             k++;
         }
     }
-    
-
     /*MEMORIZZO LA MATRICE NELLA STRUTTURA DATI CREATA APPOSITAMENTE PER FACILITARE IL SUO UTILIZZO*/
     Matrix m = {rows,columns,matrix,rows*columns,map};
     /*INVOCO LA FUNZIONE ZEROS PER INIZIALIZZARE LA MATRICE*/
@@ -104,8 +102,6 @@ void Build_Charmap(Matrix m){
             inserted = 0;
             /*CONTROLLO SE LA POSIZIONE ATTUALE È VUOTA*/
             if(m.map[k].carattere == '0'){
-                /*STAMPA DI DEBUG*/
-                //printf("caso 1:carattere:%c\n",m.matrix[i][j]);
                 /*AGGIORNO IL CARATTERE*/
                 m.map[k].carattere = m.matrix[i][j];
                 /*INSERISCO LA POSIZIONE IN RIGHE E COLONNE IN BASE ALL'OCCORRENZA*/
@@ -144,8 +140,6 @@ void Build_Charmap(Matrix m){
     }
     /*INVOCO LA ADJUST_CHARMAP PER RIDURRE L'OCCUPAZIONE DELLA MEMORIA*/
     m.map = Adjust_Charmap(m.map);
-    /*INVOCO LA PRINT_CHARMAP PER STAMPARE LA MAPPATURA APPENA CREATA*/
-    //Print_CharMap(m);
     return;
 }
 
@@ -155,7 +149,6 @@ void Stringify_Matrix(Matrix m,char* string){
     int k = 0;
     for(int i =0;i<m.rows;i++){
         for(int j = 0;j<m.columns;j++){
-            //printf("carattere:%c\n",m.matrix[i][j]);
             string[k] = m.matrix[i][j];
             k++;
         }
@@ -176,55 +169,6 @@ void Load_Matrix(Matrix m, char* path_to_file){
     SYSC(retvalue,close(fd),"nella chiusura del file descriptor");
     return;
 }
-
-// int Validate_Word(Matrix m,Charmap* map, char* word){
-//     int j=0,i =0,retvalue;
-//     int** old_pos = (int**)malloc(2*sizeof(int*));
-//     old_pos[0] = (int*)malloc(2*sizeof(int));
-//     old_pos[1] = (int*)malloc(2*sizeof(int));
-//     if (strlen(word)<4) return -1;
-//     /*CONTROLLO CHE LA PAROLA IN INPUT SIA COMPONIBILE CON QUESTA MATRICE*/
-//     if(Is_Composable(m,word)!=0)return -1;
-    
-//     /*CREO LA MAPPATURA DEL PRIMO CARATTERE DELLA PAROLA*/
-//     Charmap first_char = Find_Charmap_Element(m,word[0]);
-//     //printf("strlen:%ld\n",strlen(word));
-//     while(1){
-//         //printf("while\n");
-//         /*SE SONO ALL'ULTIMO CARATTERE DELLA STRINGA HO FINITO*/
-//         if (i+1 == strlen(word)){
-//             return 0;
-//         };
-//         j = i+1;
-//         first_char.size = m.size;
-//         /*CERCO LA SECONDA CHARMAP*/
-//         Charmap second_char = Find_Charmap_Element(m,word[j]);
-//         /*CONTROLLO SE I CARATTERI SONO VICINI*/
-//         first_char = Is_Charmap_Reachable(first_char,second_char,second_char);
-//         /*OCCORRENZA 0 VUOL DIRE CHE COMPARANDO LE DUE MAPPE NON HO AVUTO NESSUN MATCH*/
-//         if (first_char.occorrenza == 0)return -1;
-//         //Insert_Matches();
-//         //Check_Matches();
-//         /*ITERO*/
-//         i++;
-//     }
-//     return 0;
-// }
-
-// void Insert_Matches(Charmap mappa, Charmap matches){
-//     matches.size+=mappa.occorrenza;
-//     for(int i = matches.occorrenza;i<matches.size;i++){
-//         for(int j = 0;j<mappa.occorrenza;j++){
-//             if ((mappa.column[j] == matches.column[i])&&((mappa.row[j]+1 != matches.row[i])||(mappa.row[j]-1 != matches.row[i]))){
-                
-//             }
-//         }
-        
-//     }
-//     return;
-// }
-
-
 
 Charmap Is_Charmap_Reachable(Charmap m1,Charmap m2,Charmap matches){
     Charmap connected;
@@ -251,7 +195,6 @@ Charmap Is_Charmap_Reachable(Charmap m1,Charmap m2,Charmap matches){
                 connected.row[k] = m2.row[j];
                 connected.column[k] =m2.column[j]; 
                 k++;
-                //printf("colonna\n");
             }
         }
     }
@@ -260,7 +203,6 @@ Charmap Is_Charmap_Reachable(Charmap m1,Charmap m2,Charmap matches){
 }
 
 int Is_Matching(int row, int col, Charmap map){
-    //printf("size:%d\n",map.size);
     for(int i=1;i<map.size;i++){
         if((map.row[i] == row) && (map.column[i] == col)){
             printf("riga:%d\t\tcol:%d\n",row,col);
@@ -271,21 +213,17 @@ int Is_Matching(int row, int col, Charmap map){
     return -1;
 }
 
-int Is_Composable(Matrix m,char* word){//Position_List* cl){
+int Is_Composable(Matrix m,char* word){
     int occ;
-    //printf("parola:%s\n",word);
     for (int i=0;i<strlen(word);i++){
         occ = 0;
         
         Charmap m1 = Find_Charmap_Element(m,word[i]);
-        //printf("carattere in esame:%c\n",m1.carattere);
         for(int j=0;j<strlen(word);j++){
             if(word[j]==m1.carattere){
-                //printf("%c:carattere\t%d:occorrenza\n",word[j],occ);
             }
         }
         if (occ > m1.occorrenza){
-            //printf("carattere errato:%c\toccorrenza attuale:%d\toccorrenza corretta:%d\n",m1.carattere,occ,m1.occorrenza);
             return -1;
         }
     }
@@ -300,11 +238,9 @@ Charmap Find_Charmap_Element(Matrix m,char x){
             pos.column = (int*)malloc(m.map[i].occorrenza*sizeof(int));
             pos.carattere = m.map[i].carattere;
             for(int j = 0;j<m.map[i].occorrenza;j++){
-                //printf("indice j:%d\n",j);
                 pos.occorrenza = m.map[i].occorrenza;
                 pos.row[j] = m.map[i].row[j];
                 pos.column[j] = m.map[i].column[j];
-                //printf("%c riga: %d,colonna: %d\n",pos.carattere,pos.row[j],pos.column[j]);
             }
             return pos;
         }
@@ -317,12 +253,10 @@ int Is_Reachable(Matrix m,int* old_pos,int* pos){
     if (old_pos[0] == -1) return 0;
     /*stessa riga*/
     if (((old_pos[1]+1 == pos[1]) || (old_pos[1]-1 == pos[1]))&&(old_pos[0] == pos[0])){
-            //printf("riga:%d,colonna:%d\n",old_pos[0],old_pos[1]);
         return 0;
     }
     /*sono sulla stessa colonna,altrimenti mi sto muovendo in diagonale*/
     if(((old_pos[0]+1 == pos[0]) || (old_pos[0]-1 == pos[0]))&&(old_pos[1] == pos[1])){
-        //printf("riga:%d,colonna:%d\n",old_pos[0],old_pos[1]);
         return 0;
     }
     /*sono in una posizione illegale*/
@@ -350,8 +284,6 @@ Charmap* Adjust_Charmap(Charmap* map){
     }
     /*DIMINUISCO LA MEMORIA ALLOCATA*/
     map = realloc(map, map->size *sizeof(Charmap));
-    /*STAMPA PER DEBUGGING*/
-    //Print_CharMap(newmap);   
     return map;
 }
 
@@ -379,9 +311,6 @@ void Position_List_Push(Position_List* cl,int r, int c){
 
 /*ESTRAGGO L'ELEMENTO IN TESTA ALLA LISTA*/
 void Position_List_Pop(Position_List* pl){
-    //int* popped = (int*)malloc(2*sizeof(int));
-    // popped[0] = (*cl)->row;
-    // popped[1] = (*cl)->col;
     /*creo un nodo temporaneo*/
     Position_Node* temp = *pl;
     /*faccio puntare la testa della lista al prossimo elemento*/
@@ -422,8 +351,6 @@ int Print_Position_List(Position_List cl){
 
 int Validate(Matrix m, char* word){
     Position_List l = NULL;
-    //int j = 1;int k = 0;
-    //int actual_pos[2][2];
     int next_pos[2];
     /*controllo di avere una stringa lunga almeno 4 caratteri*/
     if (strlen(word)<4 ) return -1;
@@ -445,14 +372,10 @@ int Validate(Matrix m, char* word){
                     break;
                 }
             }
-            if (Position_List_Size(l)==strlen(word)){/*Print_Position_List(l)*/;return 0;}
+            if (Position_List_Size(l)==strlen(word)){return 0;}
             if (l == NULL)return -1;
-            //j++;
-            //}
         }
     }
-    
-    //Print_Position_List(l);
     return -1;
 }
 
