@@ -13,8 +13,6 @@ int main(int argc,char* argv[]){
         perror("usare la seguente sintassi: nome_programma rows columns contenuto_matrice word");
         exit(EXIT_FAILURE);
     }
-    int retvalue;
-    int* pos = (int*)malloc(2*sizeof(int));
     int rows = atoi(argv[1]);
     int columns = atoi(argv[2]);
     char* word = argv[4];
