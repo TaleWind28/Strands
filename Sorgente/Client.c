@@ -11,6 +11,7 @@
 #include "../Header/macro.h"
 #include "../Header/Matrix.h"
 #include "../Header/Queue.h"
+#include "../Header/Communication.h"
 
 #define NUM_ROWS 4
 #define NUM_COLUMNS 4

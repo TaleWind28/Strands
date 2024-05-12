@@ -14,6 +14,7 @@
 #include "../Header/macro.h"
 #include "../Header/Matrix.h"
 #include "../Header/Queue.h"
+#include "../Header/Communication.h"
 
 #define MAX_CLIENTS 3
 #define NUM_ROWS 4
