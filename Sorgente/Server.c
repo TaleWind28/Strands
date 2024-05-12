@@ -49,17 +49,11 @@ int main(int argc, char* argv[]){
 
     /*inizializzazione server address*/
     server_address.sin_family = AF_INET;
-    server_address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    server_address.sin_addr.s_addr = inet_addr(HOST);
     server_address.sin_port = htons(PORT);
-
-    /*PROVA INTERNET*/
-    //server_address.sin_addr.s_addr = inet_addr(HOST);
-
-
     
     /*CREAZIONE DIZIONARIO*/
     Build_Dictionary(&Dictionary,DIZIONARIO);
-    //Print_WList(Dictionary);
     
     /*creazione socket*/
     SYSC(server_fd,socket(AF_INET,SOCK_STREAM,0),"creazione socket del server");
@@ -137,7 +131,7 @@ void Play(int client_fd){
         char* input = (char*)malloc(1024*sizeof(char));
         /*LETTURA DAL CLIENT*/
         SYSC(n_read,read(client_fd,input,1024),"nella lettura dal client");
-        realloc(input,strlen(input)*sizeof(char));
+        input = realloc(input,strlen(input)*sizeof(char));
         /*TOLGO IL \n DALLA STRINGA RICEVUTA IN INPUT*/
         char*token = strtok(input,"\n");
         /*LANCIO IL PIGNOLER*/

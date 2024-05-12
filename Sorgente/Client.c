@@ -34,10 +34,7 @@ int main(int argc, char* argv[]){
     }
     /*inizializzazione server_address*/
     server_address.sin_family = AF_INET;
-    // server_address.sin_port = htons(PORT);
-    server_address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    /*PROVA INTERNET*/
-    //server_address.sin_addr.s_addr = inet_addr(HOST);
+    server_address.sin_addr.s_addr = inet_addr(HOST);
     server_address.sin_port = htons(PORT);
     
     /*creo il socket per comunicare*/
@@ -76,7 +73,7 @@ void Play(int client_fd){
         char* input = (char*)malloc(buff_size*sizeof(char));
         /*ASPETTO UN INPUT DALL'UTENTE*/
         SYSC(n_read,read(STDIN_FILENO,input,buff_size),"nella lettura dell'input del cliente");
-        retvalue = realloc(input,strlen(input)*sizeof(char));
+        input = realloc(input,strlen(input)*sizeof(char));
         /*CONTROLLO SE L'INPUT È ACCETTABILE*/
         if(strlen(input) == 1){
             input = "lol\n";

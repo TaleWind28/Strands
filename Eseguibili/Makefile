@@ -34,7 +34,7 @@ SRCQ = $(SORGENTE)$(CODE).c
 #Input
 PORT = 20000
 PORT2 = 30000
-HOST = localhost
+HOST = 127.0.0.1
 
 #Test
 SERVER_RUN = ./$(SERVER) $(HOST) $(PORT)
