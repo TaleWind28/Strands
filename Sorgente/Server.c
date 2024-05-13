@@ -25,7 +25,7 @@
 void* Thread_Handler(void* );
 void* Dealer(void *);
 void* Pignoler(void *);
-void Play();
+void Play(int );
 void Build_Dictionary(Word_List* ,char* );
 Matrix playing_matrix;
 Word_List Dictionary = NULL;
@@ -115,7 +115,7 @@ void* Dealer(void * args){
 
 void Play(int client_fd){
     int retvalue, point = 0,highscore = 0,exit_val = 0;
-    ssize_t n_read;char score[buff_size];
+    char score[buff_size];
     Word_List parole_indovinate = NULL;
     pthread_t thread_pignoler;
 
@@ -125,26 +125,25 @@ void Play(int client_fd){
     //writef(retvalue,string_matrix);
     writef(retvalue,"client connesso\n");
     /*MANDO LA MATRICE AL CLIENT*/
-    SYSC(retvalue,write(client_fd,string_matrix,strlen(string_matrix)),"nella comunicazione al client della matrice");
+    char msg_type = MSG_OK;
+    //SYSC(retvalue,write(client_fd,string_matrix,strlen(string_matrix)),"nella comunicazione al client della matrice");
+    Send_Message(client_fd,string_matrix,MSG_MATRICE);
     for(int i=0;i<5;i++){
-        /*ALLOCO UNA MATRICE DI CARATTERI PER MEMORIZZARE TUTTI GLI INPUT DELL'UTENTE*//*CAMBIARE ASSOLUTAMENTE APPENA FUNZIONA TUTTO*/
-        //char** input = (char**)malloc(10*sizeof(char*));
-        char* input = (char*)malloc(1024*sizeof(char));
         /*LETTURA DAL CLIENT*/
-        SYSC(n_read,read(client_fd,input,1024),"nella lettura dal client");
-        input = realloc(input,strlen(input)*sizeof(char));
-        /*TOLGO IL \n DALLA STRINGA RICEVUTA IN INPUT*/
-        char*token = strtok(input,"\n");
+        //SYSC(n_read,read(client_fd,input,1024),"nella lettura dal client");
+        char* input = Receive_Message(client_fd,msg_type);
+        writef(retvalue,input);
+        writef(retvalue,":input\n");
         /*LANCIO IL PIGNOLER*/
-        SYST(retvalue,pthread_create(&thread_pignoler,NULL,Pignoler,token),"nella creazione del pignoler");
+        SYST(retvalue,pthread_create(&thread_pignoler,NULL,Pignoler,input),"nella creazione del pignoler");
         /*CONTROLLO DELLA VALIDITà DELLA PAROLA*/
-        if (Validate(playing_matrix,token)==0){
+        if (Validate(playing_matrix,input)==0){
             /*ASPETTO IL PIGNOLER*/
             SYST(retvalue,pthread_join(thread_pignoler,(void**)&exit_val),"nell'attesa del pignoler con parola valida");
-            if (Find_Word(parole_indovinate,token)!= 0 && exit_val == 0){
-                Push(&parole_indovinate,token);
+            if (Find_Word(parole_indovinate,input)!= 0 && exit_val == 0){
+                Push(&parole_indovinate,input);
                 /*CALCOLO IL PUNTEGGIO DELLA PAROLA*/
-                point = strlen(token);
+                point = strlen(input);
                 /*MESSAGGIO LATO SERVER*/
                 writef(retvalue,"parola legale\n");
                 /*FORMATTAZZIONE PER LA STRINGA DA PASSARE AL CLIENT*/
@@ -154,7 +153,7 @@ void Play(int client_fd){
                 /*ASSEGNO 0 PUNTI PERCHÈ LA PAROLA È GIA STATA USATA*/
                 point = 0;
                 /*FORMATTAZZIONE PER LA STRINGA DA PASSARE AL CLIENT*/
-                sprintf(score,"%d punti,parola già inserita o illegale\n",point);
+                sprintf(score,"\n%d punti,parola già inserita o illegale\n",point);
             }
         }else{/*PAROLA NON VALIDA*/
             writef(retvalue,"parola illegale\n");
@@ -167,6 +166,7 @@ void Play(int client_fd){
         }
         
         /*PASSO LA STRINGA AL CLIENT*/
+        //Send_Message(client_fd,score,MSG_PUNTI_PAROLA);
         SYSC(retvalue,write(client_fd,score,strlen(score)),"nella comunicazione del punteggio");
         /*AGGIUNGO IL PUNTEGGIO ATTUALE AL TOTALE*/
         highscore+=point;
@@ -179,20 +179,20 @@ void Play(int client_fd){
 
 /*THREAD CHE SCORRE IL DIZIONARIO PER CONTROLLARE LA VALIDITà DELLA PAROLA*/
 void* Pignoler(void* args){
-    //int retvalue;
+    int retvalue;
     //int exit_val = 0;
     char* input = (char*) args;
     /*LEGGO DALLA CODA CONTENENTE IL DIZIONARIO*//*COSTA TROPPO FARE UNA READ VOLTA PER VOLTA*/
     //Print_WList(Dictionary);
-    //writef(retvalue,input);
     if(Find_Word(Dictionary,input)==0){
         pthread_exit((void*)0);
         return NULL;
     }
     //writef(retvalue,"diobo\n");
     /*SE LA RICERCA NON HA SUCCESSO*/
-    //exit_val = -1;
+    //exit_val = -1
     /*TERMINO IL THREAD E OTTENGO IL VALORE DI RITORNO*/
+    writef(retvalue,"esco con -1");
     pthread_exit((void*)-1);
     return NULL;
 }
@@ -207,12 +207,12 @@ void Build_Dictionary(Word_List* wl,char* path_to_dictionary){
     /*LEGGO LE PRIME 256 PAROLE DEL DIZIONARIO*/
     SYSC(n_read,read(dizionario_fd,buffer,buff_size),"nella lettura dal dizionario")
     while(n_read!=0){
-        char* token = strtok(buffer,"\n");
+        char* token = strtok(buffer,",");
         while(token != NULL){
             /*INSERISCO LA PRIMA PAROLA NELLA LISTA*/
             Push(wl,token);
             /*TOKENIZZO PER CERCARE LA PROSSIMA*/
-            token = strtok(NULL,"\n");
+            token = strtok(NULL,",");
         }
         SYSC(n_read,read(dizionario_fd,buffer,buff_size),"nella lettura dal dizionario")
     }

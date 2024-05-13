@@ -15,5 +15,7 @@ char* Receive_Message(int Communication_fd,char Message_Type);
 /*INVIO UN MESSAGGIO*/
 void Send_Message(int Communication_fd, char* data_to_send,char Message_Type);
 
+/*RENDO MAIUSCOLA UNA STRINGA*/
+void Caps_Lock(char* string);
 // /*IDENTIFICO IL TIPO DI UN MESSAGGIO*/
 // void Recognize_Message(int Communication_fd, char* data_to_send,char Message_Type);

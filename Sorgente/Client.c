@@ -53,11 +53,12 @@ int main(int argc, char* argv[]){
 
 void Play(int client_fd){
     /*DICHIARAZIONE VARIABILI*/
-    int retvalue,i = 0;ssize_t n_read;char score[buff_size],matrice_stringa[buff_size];
+    int retvalue,i = 0;ssize_t n_read;char matrice_stringa[buff_size];char msg_type = '0';
     /*CREO LA MATRICE DA FAR UTILIZZARE AL CLIENT*/
     Matrix client_matrix = Create_Matrix(NUM_ROWS,NUM_COLUMNS);
     /*LEGGO LA MATRICE PASSATA DAL SERVER*/
-    SYSC(retvalue,read(client_fd,matrice_stringa,buff_size),"nella lettura della matrice");
+    //SYSC(retvalue,read(client_fd,matrice_stringa,buff_size),"nella lettura della matrice");
+    strcpy(matrice_stringa,Receive_Message(client_fd,msg_type));
     /*RIEMPIO LA MATRICE COI DATI DEL SERVER*/
     Fill_Matrix(client_matrix,matrice_stringa);
     /*COSTRUISCO LA MAPPA DEI CARATTERI DELLA MATRICE*/
@@ -72,22 +73,31 @@ void Play(int client_fd){
         writef(retvalue,"Inserisci una parola\n");
         /*ALLOCO UN PUNTATORE A CARATTERI DOVE MEMORIZZARE GLI INPUT UTENTE*/
         char* input = (char*)malloc(buff_size*sizeof(char));
+        char*score = (char*)malloc(buff_size*sizeof(char));
         /*ASPETTO UN INPUT DALL'UTENTE*/
         SYSC(n_read,read(STDIN_FILENO,input,buff_size),"nella lettura dell'input del cliente");
-        input = realloc(input,strlen(input)*sizeof(char));
-        /*CONTROLLO SE L'INPUT È ACCETTABILE*/
-        if(strlen(input) == 1){
-            input = "lol\n";
-            n_read = strlen(input);
+        //writef(retvalue,input);
+        /*CONTROLLO SE L'UTENTE HA PER SBAGLIO INSERITO UN \n COME PAROLA*/
+        if(n_read == 1){
+            strcpy(input,"lol\n");
+            n_read = 3;
         }
+        input = realloc(input,n_read*sizeof(char));
+        input = strtok(input,"\n");
+        Caps_Lock(input);
         /*SCRIVO SUL FILE DESCRIPTOR CONDIVISO COL SERVER IL MESSAGGIO DA MANDARE*/
-        SYSC(retvalue,write(client_fd,input,n_read),"nella write");
+        Send_Message(client_fd,input,MSG_PAROLA);
+        //SYSC(retvalue,write(client_fd,input,n_read),"nella write");
         /*ASPETTO CHE MI VENGA COMUNICATO IL PUNTEGGIO*/
+        //char* score = Receive_Message(client_fd,msg_type);
         SYSC(n_read,read(client_fd,score,buff_size),"nella lettura del punteggio");
         /*SCRIVO A VIDEO IL PUNTEGGIO*/
         SYSC(retvalue,write(STDOUT_FILENO,score,n_read),"nella comunicazione del punteggio a video");
+        free(input);
+        free(score);
         i++;
     }
+    char score[buff_size];
     SYSC(n_read,read(client_fd,score,buff_size),"nella lettura del punteggio totale");
     return;
 }

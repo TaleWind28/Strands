@@ -58,7 +58,9 @@ void server(){
     
     SYSC(client_fd,accept(server_fd,(struct sockaddr*)&client_address,&client_length),"nella accept");
     char msg_type = 'a';    
+    
     char * message = Receive_Message(client_fd,msg_type);
+    Caps_Lock(message);
     writef(retvalue,message);
     printf("%c",msg_type);
     /*chiusura dei socket*/
