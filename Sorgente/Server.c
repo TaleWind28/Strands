@@ -16,7 +16,7 @@
 #include "../Header/Queue.h"
 #include "../Header/Communication.h"
 
-#define MAX_CLIENTS 3
+#define MAX_NUM_CLIENTS 32
 #define NUM_ROWS 4
 #define NUM_COLUMNS 4
 #define DIZIONARIO "../File Testuali/Dizionario.txt"
@@ -26,9 +26,10 @@ void* Thread_Handler(void* );
 void* Dealer(void *);
 void* Pignoler(void *);
 void Play(int );
-void Build_Dictionary(Word_List* ,char* );
+void Build_Dictionary(Hash_Entry* ,char* );
+
 Matrix playing_matrix;
-Word_List Dictionary = NULL;
+Hash_Entry Dictionary[TABLE_SIZE];;
 
 int main(int argc, char* argv[]){
     /*CONTROLLO PARAMETRI RIGA DI COMANDO*/
@@ -42,8 +43,8 @@ int main(int argc, char* argv[]){
     char* MATRICI = argv[3];
 
     /*dichiarazione variabili*/
-    int retvalue, server_fd , client_fd[MAX_CLIENTS];
-    pthread_t client_thread[MAX_CLIENTS];
+    int retvalue, server_fd , client_fd[MAX_NUM_CLIENTS];
+    pthread_t client_thread[MAX_NUM_CLIENTS];
     pthread_t dealer_thread;
     //pthread_t acceptance_thread;
     struct sockaddr_in server_address, client_address;
@@ -53,11 +54,12 @@ int main(int argc, char* argv[]){
     server_address.sin_family = AF_INET;
     server_address.sin_addr.s_addr = inet_addr(HOST);
     server_address.sin_port = htons(PORT);
-    
+    writef(retvalue,"via\n");
+    init_table(Dictionary);
+    writef(retvalue,"via\n");
     /*CREAZIONE DIZIONARIO*/
-    Build_Dictionary(&Dictionary,DIZIONARIO);
-    //Print_WList(Dictionary);
-    
+    Build_Dictionary(Dictionary,DIZIONARIO);
+
     /*creazione socket*/
     SYSC(server_fd,socket(AF_INET,SOCK_STREAM,0),"creazione socket del server");
     
@@ -65,18 +67,18 @@ int main(int argc, char* argv[]){
     SYSC(retvalue,bind(server_fd,(struct sockaddr*)&server_address,sizeof(server_address)),"nella bind");
     
     /*predisposizione del listner*/
-    SYSC(retvalue,listen(server_fd,MAX_CLIENTS),"nella listen");
+    SYSC(retvalue,listen(server_fd,MAX_NUM_CLIENTS),"nella listen");
     /*CREO UN THREAD PER REGOLAMENTARE LE PARTITE*/
     SYST(retvalue,pthread_create(&dealer_thread,NULL,Dealer,MATRICI),"nella creazione dell'arbitro");
 
-    for(int i=0;i<MAX_CLIENTS;i++){
+    for(int i=0;i<MAX_NUM_CLIENTS;i++){
         /*accettazione delle richieste*/
         SYSC(client_fd[i],accept(server_fd,(struct sockaddr*)&client_address,&client_length),"nella accept");
         /*DISPATCHING DI UN THREAD PER GESTIRE LA TRANSAZIONE*/
         SYST(retvalue,pthread_create(&client_thread[i],NULL,Thread_Handler,&client_fd[i]),"dispatching dei thread");
     }
     /*ATTESA DELLA FINE DEI DISPATCHER*/
-    for(int i =0;i<MAX_CLIENTS;i++){
+    for(int i =0;i<MAX_NUM_CLIENTS;i++){
         SYST(retvalue,pthread_join(client_thread[i],NULL),"nella join dei dispatcher");
     }
     /*ATTESA DEL THREAD DEALER*/
@@ -139,7 +141,7 @@ void Play(int client_fd){
         writef(retvalue,input);
         writef(retvalue,":input\n");
         /*LANCIO IL PIGNOLER*/
-        SYST(retvalue,pthread_create(&thread_pignoler,NULL,Pignoler,input),"nella creazione del pignoler");
+        SYST(retvalue,pthread_create(&thread_pignoler,NULL,Pignoler,(void*)input),"nella creazione del pignoler");
         /*CONTROLLO DELLA VALIDITà DELLA PAROLA*/
         if (Validate(playing_matrix,input)==0){
             /*ASPETTO IL PIGNOLER*/
@@ -187,39 +189,49 @@ void Play(int client_fd){
 
 /*THREAD CHE SCORRE IL DIZIONARIO PER CONTROLLARE LA VALIDITà DELLA PAROLA*/
 void* Pignoler(void* args){
+    int retvalue;
     char* input = (char*) args;
     /*LEGGO DALLA CODA CONTENENTE IL DIZIONARIO*//*COSTA TROPPO FARE UNA READ VOLTA PER VOLTA*/
     //Print_WList(Dictionary);
-    if(Find_Word(Dictionary,input)==0){
+    if(search_string(Dictionary,input)==0){
+        writef(retvalue,"esco con 0");
         pthread_exit((void*)0);
         return NULL;
     }
     /*SE LA RICERCA NON HA SUCCESSO TERMINO IL THREAD E OTTENGO IL VALORE DI RITORNO*/
-    //writef(retvalue,"esco con -1");
+    writef(retvalue,"esco con -1");
     pthread_exit((void*)-1);
     return NULL;
 }
 
-void Build_Dictionary(Word_List* wl,char* path_to_dictionary){
+void Build_Dictionary(Hash_Entry* table,char* path_to_dictionary){
     ssize_t n_read;
     int dizionario_fd;
+    int buffer_size = 256;
     char buffer[buff_size];
-
+    char* token;
+    int retvalue;
     /*APRO IL DIZIONARIO IN SOLA LETTURA*/
     SYSC(dizionario_fd,open(path_to_dictionary,O_RDONLY),"nell'apertura del dizionario");
     /*LEGGO LE PRIME 256 PAROLE DEL DIZIONARIO*/
-    SYSC(n_read,read(dizionario_fd,buffer,buff_size),"nella lettura dal dizionario")
-    while(n_read!=0){
-        char* token = strtok(buffer,",");
+    SYSC(n_read,read(dizionario_fd,buffer,buff_size),"nella lettura dal dizionario");
+    while(n_read>0){
+        // Null-termina il buffer per garantire che sia una stringa valida
+        token = strtok(buffer,"\n");
         while(token != NULL){
             /*INSERISCO LA PRIMA PAROLA NELLA LISTA*/
             Caps_Lock(token);
             Adjust_String(token,'U');
-            Push(wl,token);
+            insert_string(table,token);
+            
             /*TOKENIZZO PER CERCARE LA PROSSIMA*/
-            token = strtok(NULL,",");
+            token = strtok(NULL,"\n");
         }
-        SYSC(n_read,read(dizionario_fd,buffer,buff_size),"nella lettura dal dizionario")
+        //writef(retvalue,"loop");
+        SYSC(n_read,read(dizionario_fd,buffer,buff_size),"nella lettura dal dizionario");
+        
+       
     }
+    SYSC(retvalue,close(dizionario_fd),"nella chiusura del file descriptor");
     return;
 }
