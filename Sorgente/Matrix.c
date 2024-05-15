@@ -8,6 +8,7 @@
 #include "../Header/macro.h"
 #include "../Header/Matrix.h"
 #include "../Header/Queue.h"
+#include "../Header/Communication.h"
 
 /*CREA UNA MATRICE DATI IN INPUT IL NUMERO DI RIGHE E COLONNE E LA RITORNO*/
 Matrix Create_Matrix(int rows, int columns){
@@ -92,16 +93,35 @@ void Stringify_Matrix(Matrix m,char* string){
 }
 
 /*CARICO NELLA MATRICE IL CONTENUTO DI UNA RIGA DI UN FILE*/
-void Load_Matrix(Matrix m, char* path_to_file){
+void Load_Matrix(Matrix m, char* path_to_file,char exception){
     int fd,retvalue;char buffer[buff_size];ssize_t n_read;
     /*APRO IL FILE IN BASE AL PATH PASSATO*/
     SYSC(fd,open(path_to_file,O_RDONLY),"nell'apertura del file");
     /*LEGGO LA PRIMA RIGA DEL FILE*/
     SYSC(n_read,read(fd,buffer,buff_size),"nella scrittura sul buffer");
     /*AGGIORNO LA MATRICE IN BASE ALLA LETTURA*/
+    Caps_Lock(buffer);
+    //writef(retvalue,buffer);
+    Adjust_String(buffer,exception);
     Fill_Matrix(m,buffer);
     /*CHIUDO IL FILE*/
     SYSC(retvalue,close(fd),"nella chiusura del file descriptor");
+    return;
+}
+
+void Adjust_String(char* string,char x){
+    int len = strlen(string);
+    int j = 0;
+    for(int i =0;i<len;i++){
+        if (string[i] != x){
+            string[j++] = string[i];
+        }
+    }
+    string[j] = '\0';
+    //char mess[buff_size];
+    // int retvalue;
+    // sprintf(mess,"stringa:%s,lunghezza:%d\n",string,strlen(string));
+    // writef(retvalue,mess);
     return;
 }
 
@@ -349,13 +369,18 @@ void Print_CharMap(Charmap* map){
 }
 
 /*STAMPA LA MATRICE*/
-void Print_Matrix(Matrix m){
+void Print_Matrix(Matrix m,char special, char exception){
     int retvalue;char message[buff_size];
     
     for(int i =0;i<m.rows;i++){
         for(int j = 0;j<m.columns;j++){
             /*SCRIVO IN UN BUFFER L'ELEMENTO DELLA MATRICE*/
-            sprintf(message,"%c\t", m.matrix[i][j]);
+            if (m.matrix[i][j] == special){
+                sprintf(message,"%c%c\t", m.matrix[i][j],exception);
+            }
+            else{
+                sprintf(message,"%c\t", m.matrix[i][j]);
+            }
             /*SCRIVO A VIDEO L'ELEMENTO*/
             writef(retvalue,message);
         }

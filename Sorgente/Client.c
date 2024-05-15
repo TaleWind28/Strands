@@ -17,7 +17,7 @@
 #define NUM_COLUMNS 4
 
 void Play(int client_fd);
-
+char* rec_mex(int Communication_fd,char Message_Type);
 
 int main(int argc, char* argv[]){
     /*dichiarazione ed inizializzazione variabili*/
@@ -53,7 +53,7 @@ int main(int argc, char* argv[]){
 
 void Play(int client_fd){
     /*DICHIARAZIONE VARIABILI*/
-    int retvalue,i = 0;ssize_t n_read;char matrice_stringa[buff_size];char msg_type = '0';
+    int retvalue,i = 0;ssize_t n_read;char matrice_stringa[buff_size],score[buff_size];char msg_type = '0';
     /*CREO LA MATRICE DA FAR UTILIZZARE AL CLIENT*/
     Matrix client_matrix = Create_Matrix(NUM_ROWS,NUM_COLUMNS);
     /*LEGGO LA MATRICE PASSATA DAL SERVER*/
@@ -64,7 +64,7 @@ void Play(int client_fd){
     /*COSTRUISCO LA MAPPA DEI CARATTERI DELLA MATRICE*/
     Build_Charmap(client_matrix);
     /*STAMPO LA MATRICE A SCHERMO*/
-    Print_Matrix(client_matrix);
+    Print_Matrix(client_matrix,'Q','U');
     /*IL CLIENT PUO INIZIARE A GIOCARE*/
     while (1){
         /*TERMINAZIONE DELLA PARTITA DA CAMBIARE QUANDO AVRò LA SPECIFICA*/
@@ -73,7 +73,7 @@ void Play(int client_fd){
         writef(retvalue,"Inserisci una parola\n");
         /*ALLOCO UN PUNTATORE A CARATTERI DOVE MEMORIZZARE GLI INPUT UTENTE*/
         char* input = (char*)malloc(buff_size*sizeof(char));
-        char*score = (char*)malloc(buff_size*sizeof(char));
+        //char*score = (char*)malloc(buff_size*sizeof(char));
         /*ASPETTO UN INPUT DALL'UTENTE*/
         SYSC(n_read,read(STDIN_FILENO,input,buff_size),"nella lettura dell'input del cliente");
         //writef(retvalue,input);
@@ -87,17 +87,22 @@ void Play(int client_fd){
         Caps_Lock(input);
         /*SCRIVO SUL FILE DESCRIPTOR CONDIVISO COL SERVER IL MESSAGGIO DA MANDARE*/
         Send_Message(client_fd,input,MSG_PAROLA);
-        //SYSC(retvalue,write(client_fd,input,n_read),"nella write");
         /*ASPETTO CHE MI VENGA COMUNICATO IL PUNTEGGIO*/
         //char* score = Receive_Message(client_fd,msg_type);
         SYSC(n_read,read(client_fd,score,buff_size),"nella lettura del punteggio");
+        //char* score = Receive_Message(client_fd,msg_type);
         /*SCRIVO A VIDEO IL PUNTEGGIO*/
+        i++;
+        //writef(retvalue,"leggo");
         SYSC(retvalue,write(STDOUT_FILENO,score,n_read),"nella comunicazione del punteggio a video");
         free(input);
-        free(score);
-        i++;
+        //free(score);
+        
     }
-    char score[buff_size];
+    /*leggo il totale*/
     SYSC(n_read,read(client_fd,score,buff_size),"nella lettura del punteggio totale");
+    /*comunico il punteggio totale*/
+    SYSC(retvalue,write(STDOUT_FILENO,score,strlen(score)),"nella comunicazione del punteggio totale");
+    //writef(retvalue,score);
     return;
 }

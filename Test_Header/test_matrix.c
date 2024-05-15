@@ -9,22 +9,27 @@
 #include "../Header/Matrix.h"
 
 int main(int argc,char* argv[]){
-    if(argc!=5){
+    if(argc!=6){
         perror("usare la seguente sintassi: nome_programma rows columns contenuto_matrice word");
         exit(EXIT_FAILURE);
     }
     int rows = atoi(argv[1]);
     int columns = atoi(argv[2]);
+    char* input = argv[3];
     char* word = argv[4];
+    char* m_string = argv[5];
     Matrix matrix = Create_Matrix(rows,columns);
-    Fill_Matrix(matrix,argv[3]);
-    //Print_Matrix(matrix);
+    Load_Matrix(matrix,m_string,'U');
+    //Adjust_String(input,'u');
+    //Fill_Matrix(matrix,input);
+    Print_Matrix(matrix,'Q','U');
     
     char* string = (char*)malloc(matrix.size*(sizeof(char)));
     Stringify_Matrix(matrix,string);
-    
-    //sprintf("stringa matriciale indotta: %s\n",string);
-    
+    char message[buff_size];
+    int retvalue;
+    sprintf(message,"stringa matriciale indotta: %s\n",string);
+    writef(retvalue,message);
     //Fill_Matrix(matrix,string);
     Build_Charmap(matrix);
     
@@ -51,6 +56,7 @@ int main(int argc,char* argv[]){
     // Position_List_Push(&l,1,1);
     // Delete_Position_List(&l);
     // Print_Position_List(l);
+    Adjust_String(word,'u');
     printf("nuova validate:%d\n",Validate(matrix,word));
     //printf("aaaaaa\n");
     // char message[buff_size];

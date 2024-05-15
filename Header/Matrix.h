@@ -42,7 +42,7 @@ void Fill_Matrix_Row(Matrix m,int row,char* letter);
 void Fill_Matrix(Matrix m,char* letters);
 
 /*CARICA IN UNA MATRICE UNA RIGA DI UN FILE*/
-void Load_Matrix(Matrix m, char* path_to_file);
+void Load_Matrix(Matrix m, char* path_to_file,char exception);
 
 /*RIEMPIO LA MAPPATURA DEI CARATTERI DELLA MATRICE*/
 void Build_Charmap(Matrix m);
@@ -67,6 +67,9 @@ int Validate(Matrix m, char* word);
 
 /*STEP PER CONVALIDARE LE PAROLE*/
 void Validation_Step(Matrix m,Position_List* l,char * word);
+
+/*RIMOVERE UN CARATTERE DA UNA STRINGA*/
+void Adjust_String(char* string,char x);
 
 /*COMPOSABLE LIST*/
 
@@ -94,7 +97,7 @@ int Delete_Position_List(Position_List* l);
 /*STAMPE A VIDEO DELLE STRUTTURE DATI O DELLE FUNZIONI SOPRA DEFINITE*/
 
 /*STAMPA LA MATRICE*/
-void Print_Matrix(Matrix m);
+void Print_Matrix(Matrix m,char special, char exception);
 
 /*STAMPA A SCHERMO UNA MAPPATURA DI CARATTERI*/
 void Print_CharMap(Charmap* m);

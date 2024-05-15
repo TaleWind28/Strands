@@ -14,12 +14,16 @@ char* Receive_Message(int Communication_fd,char Message_Type){
     buffer = realloc(buffer,n_read*sizeof(char));
     /*tokenizzo la stringa per ottenere i campi significativi del messaggio*/
     char * token = strtok(buffer,",");
+    //writef(retvalue,token);
     /*salvo il tipo del messaggio*/
     Message_Type = token[0];
     token = strtok(NULL,",");
+    //writef(retvalue,token);
     /*recupero la lunghezza dei dati passati sul file descriptor*/
     int len = strtol(token,NULL,10);
     token = strtok(NULL,",");
+    //sprintf(message,"%c,%d,%s\n",Message_Type,len,token);
+    //writef(retvalue,message);
     /*alloco una stringa dove memorizzare il campo data del messaggio e ce lo copio*/
     char* input = (char*)malloc(len*sizeof(char));
     strcpy(input,token);
@@ -54,3 +58,21 @@ void Caps_Lock(char* string){
     
 //     return 0;
 // }
+char message[buff_size];
+int retvalue;
+void Decompose_Message(char* message_to_decompose,char* message_decomposed,char decomposed_type,int decompose_len){
+    char* token = strtok(message_to_decompose,",");
+    writef(retvalue,message_to_decompose);
+    decomposed_type = token[0];
+    writef(retvalue,"strcpy\n");
+    token = strtok(NULL,",");
+    writef(retvalue,token);
+    writef(retvalue,"strcpy\n");
+    decompose_len = strtol(token,NULL,10);
+    token = strtok(NULL,",");
+    writef(retvalue,"strcpy\n");
+    strncpy(message_decomposed,token,decompose_len);
+    sprintf(message,"%c,%d,%s\n",decomposed_type,decompose_len,message_decomposed);
+    writef(retvalue,message);
+    return;
+}

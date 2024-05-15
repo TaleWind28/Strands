@@ -32,12 +32,13 @@ OBJT2 = $(TEST2).o
 
 #Test
 COMMON = ./$(TEST) 4 4 oveclihceolratou
+UNCOMMON = ./$(TEST) 4 4 atlcioquadvesisbi
 #Target
 all: $(TEST) $(TEST2) obj_clean
 #Test_Matrix
 $(TEST): $(OBJT)
 	@echo matrici
-	@$(CC) $(CFLAGS) $(OBJT) $(OBJM) -o $(TEST)
+	@$(CC) $(CFLAGS) $(OBJT) $(OBJM) $(OBJC) -o $(TEST)
 #Test_Comms
 $(TEST2): $(OBJT2)
 	@echo Comms
@@ -49,8 +50,8 @@ $(OBJT2): $(SRCT2) $(HDRS2)
 	$(CC) $(CFLAGS) -c $(SRCT2) $(SRCC) $(HDRS2)
 
 #Test_Matrix.o
-$(OBJT): $(SRCT) $(HDRS)
-	$(CC) $(CFLAGS) -c $(SRCT) $(SRCM) $(HDRS)
+$(OBJT): $(SRCT) $(HDRS) $(HDRS2)
+	$(CC) $(CFLAGS) -c $(SRCT) $(SRCM) $(SRCC) $(HDRS) $(HDRS2)
 
 #Communication.o
 $(OBJC): $(SRCC) $(HDRS2)
@@ -68,16 +69,20 @@ clear:
 	rm -f $(OBJM) $(OBJT) $(TEST) $(OBJC) $(OBJT2) $(TEST2)
 
 test-w:
-	$(COMMON) chilo
-	$(COMMON) loto
-	$(COMMON) oleato
-	$(COMMON) olive
-	$(COMMON) ruolo
-	$(COMMON) urlo
-	$(COMMON) vecchio
-	$(COMMON) vile
-	$(COMMON) voli
-	$(COMMON) ruota
-
+	# $(COMMON) chilo
+	# $(COMMON) loto
+	# $(COMMON) oleato
+	# $(COMMON) olive
+	# $(COMMON) ruolo
+	# $(COMMON) urlo
+	# $(COMMON) vecchio
+	# $(COMMON) vile
+	# $(COMMON) voli
+	# $(COMMON) ruota
+	$(UNCOMMON) CASE ../'File Testuali'/Matrici.txt
+	$(UNCOMMON) CASI ../'File Testuali'/Matrici.txt
+	$(UNCOMMON) BEVO ../'File Testuali'/Matrici.txt
+	$(UNCOMMON) VOTA ../'File Testuali'/Matrici.txt
+	$(UNCOMMON) QuASI ../'File Testuali'/Matrici.txt
 
 	

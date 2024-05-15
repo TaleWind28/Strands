@@ -41,8 +41,8 @@ PORT2 = 30000
 HOST = 127.0.0.1
 
 #Test
-SERVER_RUN = ./$(SERVER) $(HOST) $(PORT)
-SERVER_RUN2 = ./$(SERVER) $(HOST) $(PORT2)
+SERVER_RUN = ./$(SERVER) $(HOST) $(PORT) ../'File Testuali'/Matrici.txt
+SERVER_RUN2 = ./$(SERVER) $(HOST) $(PORT2) ../'File Testuali'/Matrici.txt
 CLIENT_RUN = ./$(CLIENT) $(HOST) $(PORT)
 CLIENT_RUN2 = ./$(CLIENT) $(HOST) $(PORT2)
 

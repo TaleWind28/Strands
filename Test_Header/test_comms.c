@@ -39,7 +39,7 @@ void server(){
     int retvalue, server_fd, client_fd;
     struct sockaddr_in server_address, client_address;
     socklen_t client_length = sizeof(client_address);
-
+    //char buffer[buff_size];
     /*inizializzazione server address*/
     server_address.sin_family = AF_INET;
     server_address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
@@ -59,10 +59,24 @@ void server(){
     SYSC(client_fd,accept(server_fd,(struct sockaddr*)&client_address,&client_length),"nella accept");
     char msg_type = 'a';    
     
-    char * message = Receive_Message(client_fd,msg_type);
-    Caps_Lock(message);
-    writef(retvalue,message);
-    printf("%c",msg_type);
+    ssize_t n_read;
+    char* buffer = (char*)malloc(buff_size*sizeof(char));
+    //mess.Data = (char*)malloc(buff_size*sizeof(char));
+    for(int i=0;i<2;i++){
+        
+        SYSC(n_read,read(client_fd,buffer,buff_size),"nella read");
+        //writef(retvalue,mex);
+        char tok[n_read];
+        strncpy(tok,buffer,n_read);
+        char* message = (char*)malloc((n_read-5)*sizeof(char));
+        int len = 0;
+        writef(retvalue,"tok:\n");
+        writef(retvalue,tok);
+        writef(retvalue,"\n");
+        Decompose_Message(tok,message,msg_type,len);
+        //realloc(buffer,buff_size*sizeof(char));
+        //writef(retvalue,message);
+    }
     /*chiusura dei socket*/
     SYSC(retvalue,close(client_fd),"chiusura client-fake");
     SYSC(retvalue,close(server_fd),"chiusura server");
@@ -90,6 +104,9 @@ void client(){
     /*mando un messaggio al server*/
     char * message = "dioboia funziona\n";
     Send_Message(client_fd,message,MSG_OK);
+
+    char * message2 = "dioboia\n";
+    Send_Message(client_fd,message2,MSG_OK);
 
     /*chiudo il socket*/
     SYSC(retvalue,close(client_fd),"chiusura del cliente");

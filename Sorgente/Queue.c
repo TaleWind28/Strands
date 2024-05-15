@@ -66,9 +66,10 @@ int Find_Word(Word_List wl,char* word){
 int Print_WList(Word_List wl){
     /*caso base*/
     if (wl == NULL) return 0;
+
     /*stampo l'elemento*/
     printf("%s\n",wl->word);
-    //writef(retvalue,wl->word);
+
     /*chiamata ricorsiva*/
     return Print_WList(wl->next);
 }
