@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <pthread.h>
 #include <fcntl.h>
+#include <getopt.h>
 
 #include "../Header/macro.h"
 #include "../Header/Matrix.h"
@@ -23,25 +24,103 @@
 #define NUM_COLUMNS 4
 #define GUESSED_SIZE 100
 #define DIZIONARIO "../File Testuali/Dizionario.txt"
-//#define MATRICI "../File Testuali/Matrici.txt"
+#define MATRICI "../File Testuali/Matrici.txt"
 
+typedef struct {
+    char* matrix_file;
+    int durata_partita;
+    long seed;
+    char* file_dizionario;
+}Parametri;
+
+enum {
+    OPT_MATRICI = 1,
+    OPT_DURATA,
+    OPT_SEED,
+    OPT_DIZ,
+};
+
+/*THREAD FUNCTIONS*/
 void* Thread_Handler(void* );
+void* Gestione_Server(void* args);
+/*GENERAL FUNCTIONS*/
+void Additonal_Params(int argc, char*argv[],Parametri* params);
+/*GLOBAL VARIABLES*/
+Parametri parametri_server;
+char* HOST;
+int PORT;
 
 int main(int argc, char* argv[]){
+    /*DICIARAZIONE VARIABILI*/
+    int retvalue;
+    pthread_t jester;
+    
+    /*INIZIALIZZO I PARAMETRI PASSATI DA RIGA DI COMANDO, COMPRESI QUELLI OPZIONALI*/
+    Init_Params(argc,argv,&parametri_server);
+    /*CREO UN THREAD PER GESTIRE LA CREAZIONE DEL SERVER ED IL DISPATCHING DEI THREAD*/
+    SYST(retvalue,pthread_create(&jester,NULL,Gestione_Server,NULL),"nella creazione del giullare");
+    /*SFRUTTO IL SERVER COME DEALER*/
+    /*ASPETTO LA TERMINAZIONE DEL THREAD*/
+    SYST(retvalue,pthread_join(jester,NULL),"nell'sattesa del jester");
+    return 0;
+}
+
+void Init_Params(int argc, char*argv[],Parametri* params){
+    int opt, index = 0;
+    /*DEFINISCO UNA STRUCT CON I PARAMETRI OPZIONALI CHE IL PROGRAMMA PUò RICEVERE*/
+    struct option logn_opt[] = {
+        {"matrici", required_argument, 0, OPT_MATRICI},
+        {"durata", required_argument, 0, OPT_DURATA},
+        {"seed", required_argument, 0, OPT_SEED},
+        {"diz", required_argument, 0, OPT_DIZ},
+        {0, 0, 0, 0}
+    };
+
     /*CONTROLLO PARAMETRI RIGA DI COMANDO*/
-    if(argc != 4){
+    if(argc < 4){
         perror("usare la seguente sintassi: nome programa host porta_server file_matrici");
         exit(EXIT_FAILURE);
     }
-    /*INIZIALIZZAZIONE VARIABILI IN BASE ALL'ARGOMENTO DELLA RIGA DI COMANDO*/
-    char* HOST = argv[1];
-    int PORT = atoi(argv[2]);
-    char* MATRICI = argv[3];
 
+    /*INIZIALIZZAZIONE VARIABILI IN BASE ALL'ARGOMENTO DELLA RIGA DI COMANDO*/
+    HOST = argv[1];
+    PORT = atoi(argv[2]);
+
+    /*SCORRO TUTTI I PARAMETRI OPZIONALI RICEVUTI IN INPUT*/
+    while((opt =getopt_long(argc,argv,"",logn_opt,&index))!=-1){
+        switch(opt){
+            case OPT_MATRICI:
+                params->matrix_file = optarg;
+                break;
+            case OPT_DURATA:
+                params->durata_partita = atoi(optarg);
+                break;
+            case OPT_SEED:
+                params->seed = atoi(optarg);
+                break;
+            case OPT_DIZ:
+                params->file_dizionario = optarg;
+                break;
+            case '?':
+                // getopt_long già stampa un messaggio di errore
+                printf("Opzione non riconosciuta o mancante di argomento\n");
+                break;
+            default: printf("argomento superfluo ignorato\n");
+        }
+    }
+    if (argc==4){
+        params->matrix_file = MATRICI;
+        params->durata_partita = 10;
+        params->seed = 1;
+        params->file_dizionario = DIZIONARIO;
+    }
+    return;
+}
+
+void* Gestione_Server(void* args){
     /*dichiarazione variabili*/
     int retvalue, server_fd , client_fd[MAX_NUM_CLIENTS];
     pthread_t client_thread[MAX_NUM_CLIENTS];
-    pthread_t dealer_thread;
     //pthread_t acceptance_thread;
     struct sockaddr_in server_address, client_address;
     socklen_t client_length = sizeof(client_address);
@@ -59,7 +138,8 @@ int main(int argc, char* argv[]){
     
     /*predisposizione del listner*/
     SYSC(retvalue,listen(server_fd,MAX_NUM_CLIENTS),"nella listen");
-
+    
+    //accettazione dei client
     for(int i=0;i<MAX_NUM_CLIENTS;i++){
         /*accettazione delle richieste*/
         SYSC(client_fd[i],accept(server_fd,(struct sockaddr*)&client_address,&client_length),"nella accept");
@@ -72,7 +152,7 @@ int main(int argc, char* argv[]){
     }
     /*CHIUSURA DEL SOCKET*/
     SYSC(retvalue,close(server_fd),"chiusura server");
-    return 0;
+    return NULL;
 }
 
 void* Thread_Handler(void* args){

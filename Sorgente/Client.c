@@ -20,7 +20,7 @@ void Play(int client_fd);
 
 int main(int argc, char* argv[]){
     /*dichiarazione ed inizializzazione variabili*/
-    int retvalue, client_fd;char matrice_stringa[buff_size];char msg_type = '0';
+    int retvalue, client_fd;
     struct sockaddr_in server_address;
     socklen_t server_len = sizeof(server_address);
     /*INIZIALIZZAZIONE VARIABILI IN BASE ALL'ARGOMENTO DELLA RIGA DI COMANDO*/
