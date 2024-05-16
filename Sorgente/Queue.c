@@ -78,17 +78,18 @@ int Print_WList(Word_List wl){
 }
 
 // Funzione hash semplice (djb2)
-unsigned int hash(const char *str,int Table_size) {
-    unsigned long hash = 5381;
+unsigned int hash(const char *str,unsigned int Table_size) {
+    unsigned int hash = 5381;
     int c;
     while ((c = *str++)) {
         hash = ((hash << 5) + hash) + c;
     }
-    return hash % Table_size;
+    hash = hash % Table_size;
+    return hash;
 }
 
 // Funzione per inizializzare la hash table
-void init_table(Hash_Entry *table,int Table_size) {
+void init_table(Hash_Entry *table,unsigned int Table_size) {
     for (int i = 0; i < Table_size; i++) {
         table[i].string = NULL;
         table[i].is_occupied = 0;
@@ -97,7 +98,7 @@ void init_table(Hash_Entry *table,int Table_size) {
 }
 
 // Funzione per inserire una stringa nella hash table usando linear probing
-void insert_string(Hash_Entry *table, char *str,int Table_size) {
+void insert_string(Hash_Entry *table, char *str,unsigned int Table_size) {
     unsigned int index = hash(str,Table_size);
     unsigned int original_index = index;
     while (table[index].is_occupied) {
@@ -114,13 +115,11 @@ void insert_string(Hash_Entry *table, char *str,int Table_size) {
 }
 
 // Funzione per cercare una stringa nella hash table
-int search_string(Hash_Entry *table, const char *str, int Table_size) {
+int search_string(Hash_Entry *table, const char *str, unsigned int Table_size) {
     unsigned int index = hash(str,Table_size);
-    int retvalue;
     unsigned int original_index = index;
     while (table[index].is_occupied) {
         if (strcmp(table[index].string, str) == 0) {
-            writef(retvalue,table[index].string);
             return index;
         }
         index = (index + 1) % Table_size;
@@ -131,7 +130,7 @@ int search_string(Hash_Entry *table, const char *str, int Table_size) {
     return -1;
 }
 
-void Delete_Table(Hash_Entry* hash_table,int Table_size){
+void Delete_Table(Hash_Entry* hash_table,unsigned int Table_size){
     for (int i = 0; i < Table_size; i++) {
         if (hash_table[i].string) {
             free(hash_table[i].string);

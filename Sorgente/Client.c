@@ -79,8 +79,7 @@ void Play(int client_fd){
             strcpy(input,"l\n");
             n_read = 1;
         }
-        // writef(retvalue,input);
-        char* token = strtok(input,"\n");
+        char* token = strtok(input,"\n"); 
         Caps_Lock(token);
         /*SCRIVO SUL FILE DESCRIPTOR CONDIVISO COL SERVER IL MESSAGGIO DA MANDARE*/
         Send_Message(client_fd,token,MSG_PAROLA);

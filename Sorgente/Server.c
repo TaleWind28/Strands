@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <errno.h>
 #include <pthread.h>
 #include <fcntl.h>
@@ -32,6 +33,19 @@ void Build_Dictionary(Hash_Entry* ,char* );
 
 Matrix playing_matrix;
 Hash_Entry Dictionary[TABLE_SIZE];
+
+void print_hash_table(Hash_Entry *table, unsigned int Table_size) {
+    printf("Contenuto della tabella hash:\n");
+    printf("-----------------------------\n");
+    for (int i = 0; i < Table_size; i++) {
+        if (table[i].is_occupied) {
+            printf("Indice %d: %s\n", i, table[i].string);
+        } else {
+            printf("Indice %d: vuoto\n", i);
+        }
+    }
+    printf("-----------------------------\n");
+}
 
 int main(int argc, char* argv[]){
     /*CONTROLLO PARAMETRI RIGA DI COMANDO*/
@@ -60,7 +74,6 @@ int main(int argc, char* argv[]){
     init_table(Dictionary,TABLE_SIZE);
     /*CREAZIONE DIZIONARIO*/
     Build_Dictionary(Dictionary,DIZIONARIO);
-
     /*creazione socket*/
     SYSC(server_fd,socket(AF_INET,SOCK_STREAM,0),"creazione socket del server");
     
@@ -141,12 +154,6 @@ void Play(int client_fd){
         /*LETTURA DAL CLIENT*/
         char* score = (char*)malloc(buff_size*sizeof(char));
         char* input = Receive_Message(client_fd,msg_type);
-        /*STAMPE DI DEBUG*/
-        writef(retvalue,input);
-        writef(retvalue,":input\n");
-        char mess[buff_size];
-        sprintf(mess,"h1:%d\n",hash(input,TABLE_SIZE));
-        writef(retvalue,mess)
         /*LANCIO IL PIGNOLER*/
         SYST(retvalue,pthread_create(&thread_pignoler,NULL,Pignoler,(void*)input),"nella creazione del pignoler");
         Adjust_String(input,'U');
@@ -154,7 +161,7 @@ void Play(int client_fd){
         if (Validate(playing_matrix,input)==0){
             /*ASPETTO IL PIGNOLER*/
             SYST(retvalue,pthread_join(thread_pignoler,(void**)&exit_val),"nell'attesa del pignoler con parola valida");
-            if (search_string(parole_indovinate,input,GUESSED_SIZE)!= 0 && exit_val == 0){
+            if (search_string(parole_indovinate,input,GUESSED_SIZE)== -1 && exit_val == 0){
                 insert_string(parole_indovinate,input,GUESSED_SIZE);
                 /*CALCOLO IL PUNTEGGIO DELLA PAROLA*/
                 point = strlen(input);
@@ -202,11 +209,9 @@ void* Pignoler(void* args){
     int retvalue;
     /*recupero gli argomenti passati al server*/
     char* input = (char*) args;
+    //print_hash_table(Dictionary,TABLE_SIZE);
+    
     /*LEGGO DALLA CODA CONTENENTE IL DIZIONARIO*//*COSTA TROPPO FARE UNA READ VOLTA PER VOLTA*/
-    writef(retvalue,input);
-            char mess[buff_size];
-        sprintf(mess,"h1:%d, h2:%d\n",hash(input,TABLE_SIZE),search_string(Dictionary,"CASI",TABLE_SIZE));
-        writef(retvalue,mess)
     if(search_string(Dictionary,input,TABLE_SIZE)!=-1){
         writef(retvalue,"esco con 0");
         pthread_exit((void*)0);
@@ -221,22 +226,22 @@ void* Pignoler(void* args){
 void Build_Dictionary(Hash_Entry* table,char* path_to_dictionary){
     ssize_t n_read;
     int dizionario_fd;
-    int file_size =279894 ;
-    char buffer[file_size];
+    
     char* token;
     int retvalue;
+    struct stat st;
+    SYSC(retvalue,stat(path_to_dictionary,&st),"nella stat");
     /*APRO IL DIZIONARIO IN SOLA LETTURA*/
     SYSC(dizionario_fd,open(path_to_dictionary,O_RDONLY),"nell'apertura del dizionario");
-    /*LEGGO LE PRIME 256 PAROLE DEL DIZIONARIO*/
-    SYSC(n_read,read(dizionario_fd,buffer,file_size),"nella lettura dal dizionario");
+    /*LEGGO TUTTO IL CONTENUTO DEL DIZIONARIO*/
+    char buffer[st.st_size];
+    SYSC(n_read,read(dizionario_fd,buffer,st.st_size),"nella lettura dal dizionario");
     while(n_read>0){
         // Null-termina il buffer per garantire che sia una stringa valida
         token = strtok(buffer,"\n");
         while(token != NULL){
             /*INSERISCO LA PRIMA PAROLA NELLA LISTA*/
             Caps_Lock(token);
-            writef(retvalue,token);
-            writef(retvalue,"\n");
             insert_string(table,token,TABLE_SIZE);
             /*TOKENIZZO PER CERCARE LA PROSSIMA*/
             token = strtok(NULL,"\n");
