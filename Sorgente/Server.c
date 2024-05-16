@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <pthread.h>
 #include <fcntl.h>
+
 #include "../Header/macro.h"
 #include "../Header/Matrix.h"
 #include "../Header/Queue.h"
@@ -19,6 +20,7 @@
 #define MAX_NUM_CLIENTS 32
 #define NUM_ROWS 4
 #define NUM_COLUMNS 4
+#define GUESSED_SIZE 100
 #define DIZIONARIO "../File Testuali/Dizionario.txt"
 //#define MATRICI "../File Testuali/Matrici.txt"
 
@@ -29,7 +31,7 @@ void Play(int );
 void Build_Dictionary(Hash_Entry* ,char* );
 
 Matrix playing_matrix;
-Hash_Entry Dictionary[TABLE_SIZE];;
+Hash_Entry Dictionary[TABLE_SIZE];
 
 int main(int argc, char* argv[]){
     /*CONTROLLO PARAMETRI RIGA DI COMANDO*/
@@ -54,9 +56,8 @@ int main(int argc, char* argv[]){
     server_address.sin_family = AF_INET;
     server_address.sin_addr.s_addr = inet_addr(HOST);
     server_address.sin_port = htons(PORT);
-    writef(retvalue,"via\n");
-    init_table(Dictionary);
-    writef(retvalue,"via\n");
+    /*inizializzo la tabella hash dove memorizzare il dizionario*/
+    init_table(Dictionary,TABLE_SIZE);
     /*CREAZIONE DIZIONARIO*/
     Build_Dictionary(Dictionary,DIZIONARIO);
 
@@ -91,6 +92,7 @@ int main(int argc, char* argv[]){
 void* Thread_Handler(void* args){
     int retvalue;
     int client_fd = *(int*) args;
+    /*faccio giocare il client*/
     Play(client_fd);
     writef(retvalue,"fine player\n");
     /*chiusura del socket*/
@@ -110,7 +112,7 @@ void* Dealer(void * args){
     //Print_Matrix(playing_matrix);
     /*appena finisce l'attesa lo comunica ai thread*/
     printf("attesa finita\n");
-    /*durata della partita*/
+    /*durata della partita*//*mettere una alarm*/
     sleep(30);
     /*aspetta che finisca la partita*/
     writef(retvalue,"fine partita\n");
@@ -120,8 +122,11 @@ void* Dealer(void * args){
 
 void Play(int client_fd){
     int retvalue, point = 0,highscore = 0,exit_val = 0;
-    //char score[buff_size];
-    Word_List parole_indovinate = NULL;
+    /*creo una tabella hash per memorizzare le parole indovinate dall'utente*/
+    Hash_Entry parole_indovinate[GUESSED_SIZE];
+    /*inizializzo la tabella hash*/
+    init_table(parole_indovinate,GUESSED_SIZE);
+    
     pthread_t thread_pignoler;
     /*ALLOCO UNA STRINGA DOVE ANDRO A MEMORIZARE LA MATRICE*/
     char* string_matrix = (char*)malloc(playing_matrix.size*(sizeof(char)));
@@ -132,22 +137,25 @@ void Play(int client_fd){
     /*MANDO LA MATRICE AL CLIENT*/
     char msg_type = MSG_OK;
     Send_Message(client_fd,string_matrix,MSG_MATRICE);
-    for(int i=0;i<5;i++){
+    while(1){
         /*LETTURA DAL CLIENT*/
         char* score = (char*)malloc(buff_size*sizeof(char));
         char* input = Receive_Message(client_fd,msg_type);
-        Adjust_String(input,'U');
         /*STAMPE DI DEBUG*/
         writef(retvalue,input);
         writef(retvalue,":input\n");
+        char mess[buff_size];
+        sprintf(mess,"h1:%d\n",hash(input,TABLE_SIZE));
+        writef(retvalue,mess)
         /*LANCIO IL PIGNOLER*/
         SYST(retvalue,pthread_create(&thread_pignoler,NULL,Pignoler,(void*)input),"nella creazione del pignoler");
+        Adjust_String(input,'U');
         /*CONTROLLO DELLA VALIDITà DELLA PAROLA*/
         if (Validate(playing_matrix,input)==0){
             /*ASPETTO IL PIGNOLER*/
             SYST(retvalue,pthread_join(thread_pignoler,(void**)&exit_val),"nell'attesa del pignoler con parola valida");
-            if (Find_Word(parole_indovinate,input)!= 0 && exit_val == 0){
-                Push(&parole_indovinate,input);
+            if (search_string(parole_indovinate,input,GUESSED_SIZE)!= 0 && exit_val == 0){
+                insert_string(parole_indovinate,input,GUESSED_SIZE);
                 /*CALCOLO IL PUNTEGGIO DELLA PAROLA*/
                 point = strlen(input);
                 /*MESSAGGIO LATO SERVER*/
@@ -174,7 +182,8 @@ void Play(int client_fd){
         
         /*PASSO LA STRINGA AL CLIENT*/
         //printf("parola:%s, punti:%d\n",input,point);
-        SYSC(retvalue,write(client_fd,score,strlen(score)),"nella comunicazione del punteggio");
+        //SYSC(retvalue,write(client_fd,score,strlen(score)),"nella comunicazione del punteggio");
+        Send_Message(client_fd,score,MSG_PUNTI_PAROLA);
         /*AGGIUNGO IL PUNTEGGIO ATTUALE AL TOTALE*/
         highscore+=point;
         free(score);
@@ -183,17 +192,22 @@ void Play(int client_fd){
     sprintf(score,"hai totalizzato %d punti in tutta la partita\n",highscore);
     /*sincronizzo client e server*/
     usleep(2);
-    SYSC(retvalue,write(client_fd,score,buff_size),"nella comunicazione del punteggio totale");
+    Send_Message(client_fd,score,MSG_PUNTI_FINALI);
+    //SYSC(retvalue,write(client_fd,score,buff_size),"nella comunicazione del punteggio totale");
     return;
 }
 
 /*THREAD CHE SCORRE IL DIZIONARIO PER CONTROLLARE LA VALIDITà DELLA PAROLA*/
 void* Pignoler(void* args){
     int retvalue;
+    /*recupero gli argomenti passati al server*/
     char* input = (char*) args;
     /*LEGGO DALLA CODA CONTENENTE IL DIZIONARIO*//*COSTA TROPPO FARE UNA READ VOLTA PER VOLTA*/
-    //Print_WList(Dictionary);
-    if(search_string(Dictionary,input)==0){
+    writef(retvalue,input);
+            char mess[buff_size];
+        sprintf(mess,"h1:%d, h2:%d\n",hash(input,TABLE_SIZE),search_string(Dictionary,"CASI",TABLE_SIZE));
+        writef(retvalue,mess)
+    if(search_string(Dictionary,input,TABLE_SIZE)!=-1){
         writef(retvalue,"esco con 0");
         pthread_exit((void*)0);
         return NULL;
@@ -207,30 +221,29 @@ void* Pignoler(void* args){
 void Build_Dictionary(Hash_Entry* table,char* path_to_dictionary){
     ssize_t n_read;
     int dizionario_fd;
-    int buffer_size = 256;
-    char buffer[buff_size];
+    int file_size =279894 ;
+    char buffer[file_size];
     char* token;
     int retvalue;
     /*APRO IL DIZIONARIO IN SOLA LETTURA*/
     SYSC(dizionario_fd,open(path_to_dictionary,O_RDONLY),"nell'apertura del dizionario");
     /*LEGGO LE PRIME 256 PAROLE DEL DIZIONARIO*/
-    SYSC(n_read,read(dizionario_fd,buffer,buff_size),"nella lettura dal dizionario");
+    SYSC(n_read,read(dizionario_fd,buffer,file_size),"nella lettura dal dizionario");
     while(n_read>0){
         // Null-termina il buffer per garantire che sia una stringa valida
         token = strtok(buffer,"\n");
         while(token != NULL){
             /*INSERISCO LA PRIMA PAROLA NELLA LISTA*/
             Caps_Lock(token);
-            Adjust_String(token,'U');
-            insert_string(table,token);
-            
+            writef(retvalue,token);
+            writef(retvalue,"\n");
+            insert_string(table,token,TABLE_SIZE);
             /*TOKENIZZO PER CERCARE LA PROSSIMA*/
             token = strtok(NULL,"\n");
         }
-        //writef(retvalue,"loop");
-        SYSC(n_read,read(dizionario_fd,buffer,buff_size),"nella lettura dal dizionario");
         
-       
+        SYSC(n_read,read(dizionario_fd,buffer,buff_size),"nella lettura dal dizionario");
+
     }
     SYSC(retvalue,close(dizionario_fd),"nella chiusura del file descriptor");
     return;

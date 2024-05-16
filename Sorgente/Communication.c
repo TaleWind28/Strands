@@ -6,41 +6,33 @@
 #include "../Header/macro.h"
 #include "../Header/Communication.h"
 
-/*ASPETTO UN MESSAGGIO*/
-char* Receive_Message(int Communication_fd,char Message_Type){
-    ssize_t n_read;char* buffer = (char*)malloc(buff_size*sizeof(char));
-    /*leggo il messaggio sul file descriptor e lo salvo nel buffer*/
-    SYSC(n_read,read(Communication_fd,buffer,buff_size),"nella lettura del messaggio");
-    buffer = realloc(buffer,n_read*sizeof(char));
-    /*tokenizzo la stringa per ottenere i campi significativi del messaggio*/
-    char * token = strtok(buffer,",");
-    //writef(retvalue,token);
-    /*salvo il tipo del messaggio*/
-    Message_Type = token[0];
-    token = strtok(NULL,",");
-    //writef(retvalue,token);
-    /*recupero la lunghezza dei dati passati sul file descriptor*/
-    int len = strtol(token,NULL,10);
-    token = strtok(NULL,",");
-    //sprintf(message,"%c,%d,%s\n",Message_Type,len,token);
-    //writef(retvalue,message);
-    /*alloco una stringa dove memorizzare il campo data del messaggio e ce lo copio*/
-    char* input = (char*)malloc(len*sizeof(char));
-    strcpy(input,token);
-    /*ritorno i dati passati*/
+char* Receive_Message(int comm_fd,char type){
+    char* input;int retvalue,len;
+    /*LEGGO I PRIMI DUE CARATTERI*/
+    SYSC(retvalue,read(comm_fd,&len,sizeof(int)),"nella lettura della lunghezza del messaggio");
+    /*MEMORIZZO IL TIPO DEL MESSAGGIO*/
+    SYSC(retvalue,read(comm_fd,&type,sizeof(char)),"nella lettura del messaggio");
+    /*CONTROLLO CHE IL PAYLOAD NON VADA IGNORATO*/
+    if (len ==0)return "stringa vuota";
+    /*ALLOCO LA STRINGA CONTENTE IL PAYLOAD*/
+    input = (char*)malloc(len);
+    /*SCRIVO IL PAYLOAD SUL FILE DESCRIPTOR*/
+    SYSC(retvalue,read(comm_fd,input,len),"nella lettura del messaggio");
     return input;
 }
 
-/*INVIO UN MESSAGGIO*/
-void Send_Message(int Communication_fd, char* data_to_send,char Message_Type){
-    int retvalue,len = strlen(data_to_send);
-    /*ALLOCO UNA VARIABILE PER COMPORRE IL MESSAGGIO DA MANDARE*/
-    char* message = (char*)malloc((len+4)*sizeof(char));
-    /*COMPONGO IL MESSAGGIO*/
-    sprintf(message, "%c,%d,%s", Message_Type,len, data_to_send);
-    /*SCRIVO IL MESSAGGIO SUL FILE DESCRIPTOR*/
-    SYSC(retvalue,write(Communication_fd,message,strlen(message)),"nella scrittura del messaggio");
-    free(message);
+void Send_Message(int comm_fd,char* payload,char type){
+    int retvalue;int len = strlen(payload);
+    /*COMUNICO LA LUNGHEZZA DEL MESSAGGIO CHE STO MANDANDO*/
+    SYSC(retvalue,write(comm_fd,&len,sizeof(int)),"nella scrittura della lunghezza del messaggio");
+    usleep(3);//serve per sincornizzare read e write;
+    /*COMUNICO IL TIPO DI MESSAGGIO CHE STO MANDANDO*/
+    SYSC(retvalue,write(comm_fd,&type,sizeof(char)),"nella scrittura del tipo di messaggio");
+    /*CONTROLLO DI AVERE QUALCOSA DA SCRIVERE SUL PAYLOAD*/
+    if (len == 0)return;
+    usleep(3);//sincronizzo read e write
+    /*MANDO IL PAYLOAD*/
+    SYSC(retvalue,write(comm_fd,payload,len),"nella scrittura del payload");
     return;
 }
 
@@ -51,28 +43,5 @@ void Caps_Lock(char* string){
             string[i]-= 'a' - 'A';
         }
     }
-    return;
-}
-// /*IDENTIFICO IL TIPO DI UN MESSAGGIO*/
-// void Recognize_Message(int Communication_fd, char* data_to_send,char Message_Type){
-    
-//     return 0;
-// }
-char message[buff_size];
-int retvalue;
-void Decompose_Message(char* message_to_decompose,char* message_decomposed,char decomposed_type,int decompose_len){
-    char* token = strtok(message_to_decompose,",");
-    writef(retvalue,message_to_decompose);
-    decomposed_type = token[0];
-    writef(retvalue,"strcpy\n");
-    token = strtok(NULL,",");
-    writef(retvalue,token);
-    writef(retvalue,"strcpy\n");
-    decompose_len = strtol(token,NULL,10);
-    token = strtok(NULL,",");
-    writef(retvalue,"strcpy\n");
-    strncpy(message_decomposed,token,decompose_len);
-    sprintf(message,"%c,%d,%s\n",decomposed_type,decompose_len,message_decomposed);
-    writef(retvalue,message);
     return;
 }
