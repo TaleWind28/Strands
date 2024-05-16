@@ -35,16 +35,16 @@ int Find_Word(Word_List wl, char* word);
 int Print_WList(Word_List wl);
 
 // Funzione hash semplice (djb2)
-unsigned int hash(const char *str);
+unsigned int hash(const char *str,unsigned int Table_size);
 
 // Funzione per inizializzare la hash table
-void init_table(Hash_Entry *table);
+void init_table(Hash_Entry *table,unsigned int Table_size);
 
 // Funzione per inserire una stringa nella hash table usando linear probing
-void insert_string(Hash_Entry *table, const char *str);
+void insert_string(Hash_Entry *table, char *str,unsigned int Table_size);
 
 // Funzione per cercare una stringa nella hash table
-int search_string(Hash_Entry *table, const char *str);
+int search_string(Hash_Entry *table, const char *str,unsigned int Table_size);
 
-void Delete_Table(Hash_Entry* hash_table);
+void Delete_Table(Hash_Entry* hash_table,unsigned int Table_size);
 
