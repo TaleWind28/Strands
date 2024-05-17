@@ -185,7 +185,6 @@ void* Thread_Handler(void* args){
     //accetto solo la registrazione dell'utente
     username = Receive_Message(client_fd,&type);
     while(type != MSG_REGISTRA_UTENTE){
-        free(username);
         Send_Message(client_fd,"Inserisci il comando registra utente\n",MSG_ERR);
         username = Receive_Message(client_fd,&type);
     }
@@ -193,7 +192,7 @@ void* Thread_Handler(void* args){
 
     /*REGISTRO L'UTENTE NELLA TABELLA DEI GIOCATORT*/
     insert_string(Tabella_Player,username,MAX_NUM_CLIENTS);
-    
+
     while(type != MSG_CHIUSURA_CONNESSIONE){
         //prendo l'input dell'utente
         input = Receive_Message(client_fd,&type);
@@ -202,6 +201,7 @@ void* Thread_Handler(void* args){
         //libero l'input per il prossimo ciclo
         free(input);
     }
+    
     //stampa di debug
     writef(retvalue,"fine player\n");
     
