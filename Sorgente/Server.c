@@ -22,7 +22,6 @@
 #define MAX_NUM_CLIENTS 32
 #define NUM_ROWS 4
 #define NUM_COLUMNS 4
-#define GUESSED_SIZE 100
 #define DIZIONARIO "../File Testuali/Dizionario.txt"
 #define MATRICI "../File Testuali/Matrici.txt"
 
@@ -32,6 +31,12 @@ typedef struct {
     long seed;
     char* file_dizionario;
 }Parametri;
+
+typedef struct Player{
+    char* username;
+    pthread_t gestore;
+    int currently_playing;
+}Player;
 
 enum {
     OPT_MATRICI = 1,
@@ -43,10 +48,16 @@ enum {
 /*THREAD FUNCTIONS*/
 void* Thread_Handler(void* );
 void* Gestione_Server(void* args);
+
 /*GENERAL FUNCTIONS*/
-void Additonal_Params(int argc, char*argv[],Parametri* params);
+void Init_Params(int argc, char*argv[],Parametri* params);
+void Choose_Action(char type);
+int Generate_Round();
+
 /*GLOBAL VARIABLES*/
 Parametri parametri_server;
+Player giocatori[MAX_NUM_CLIENTS];
+Hash_Entry Tabella_Player[MAX_NUM_CLIENTS];
 char* HOST;
 int PORT;
 
@@ -57,9 +68,18 @@ int main(int argc, char* argv[]){
     
     /*INIZIALIZZO I PARAMETRI PASSATI DA RIGA DI COMANDO, COMPRESI QUELLI OPZIONALI*/
     Init_Params(argc,argv,&parametri_server);
+    /*prova tabella hash*/
+    init_table(Tabella_Player,MAX_NUM_CLIENTS);
+
     /*CREO UN THREAD PER GESTIRE LA CREAZIONE DEL SERVER ED IL DISPATCHING DEI THREAD*/
     SYST(retvalue,pthread_create(&jester,NULL,Gestione_Server,NULL),"nella creazione del giullare");
+    
     /*SFRUTTO IL SERVER COME DEALER*/
+    while(1){
+        int ctr_value = Generate_Round();/*BISOGNA SCRIVERE GENERATE ROUND IN MODO CHE QUANDO ARRIVA SIGINT SI GESTISCA TUTTO E SI CHIUDA*/
+        if (ctr_value == -1) break;
+    }
+
     /*ASPETTO LA TERMINAZIONE DEL THREAD*/
     SYST(retvalue,pthread_join(jester,NULL),"nell'sattesa del jester");
     return 0;
@@ -91,15 +111,19 @@ void Init_Params(int argc, char*argv[],Parametri* params){
         switch(opt){
             case OPT_MATRICI:
                 params->matrix_file = optarg;
+                //printf("matrice:%s\n",optarg);
                 break;
             case OPT_DURATA:
                 params->durata_partita = atoi(optarg);
+                //printf("durata:%s\n",optarg);
                 break;
             case OPT_SEED:
                 params->seed = atoi(optarg);
+                //printf("seed:%s\n",optarg);
                 break;
             case OPT_DIZ:
                 params->file_dizionario = optarg;
+                //printf("dizionario:%s\n",optarg);
                 break;
             case '?':
                 // getopt_long già stampa un messaggio di errore
@@ -117,6 +141,52 @@ void Init_Params(int argc, char*argv[],Parametri* params){
     return;
 }
 
+int Generate_Round(){
+    sleep(2);return-1;
+
+    return 0;
+}
+
+/*THREAD CHE GESTISCE UN CLIENT*/
+void* Thread_Handler(void* args){
+    int retvalue;
+    int client_fd = *(int*) args;
+    char type = '0';
+    
+
+     //accetto solo la registrazione dell'utente
+    char* username = Receive_Message(client_fd,&type);
+    while(type != MSG_REGISTRA_UTENTE){
+        free(username);
+        Send_Message(client_fd,"Inserisci il comando registra utente\n",MSG_ERR);
+        username = Receive_Message(client_fd,&type);
+    }
+    Send_Message(client_fd,"Registrazione avvenuta con successo\n",MSG_OK);
+
+    /*REGISTRO L'UTENTE NELLA TABELLA DEI GIOCATORT*/
+    insert_string(Tabella_Player,username,MAX_NUM_CLIENTS);
+    char* input;
+    while(type != MSG_CHIUSURA_CONNESSIONE){
+        //prendo l'input dell'utente
+        input = Receive_Message(client_fd,&type);
+        //Gioco con l'utente
+        Choose_Action(type);
+        //libero l'input per il prossimo ciclo
+        free(input);
+        break;
+    }
+    writef(retvalue,&type);
+    writef(retvalue,"fine player\n");
+    /*chiusura del socket*/
+    SYSC(retvalue,close(client_fd),"chiusura client-fake");
+    return NULL;
+}
+
+void Choose_Action(char type){
+    return;
+}
+
+/*THREAD CHE GESTISCE LA CREAZIONE DEL SERVER E L'ACCETTAZIONE DEI GIOCATORI*/
 void* Gestione_Server(void* args){
     /*dichiarazione variabili*/
     int retvalue, server_fd , client_fd[MAX_NUM_CLIENTS];
@@ -144,6 +214,7 @@ void* Gestione_Server(void* args){
         /*accettazione delle richieste*/
         SYSC(client_fd[i],accept(server_fd,(struct sockaddr*)&client_address,&client_length),"nella accept");
         /*DISPATCHING DI UN THREAD PER GESTIRE LA TRANSAZIONE*/
+        giocatori[i].gestore = client_thread[i];
         SYST(retvalue,pthread_create(&client_thread[i],NULL,Thread_Handler,&client_fd[i]),"dispatching dei thread");
     }
     /*ATTESA DELLA FINE DEI DISPATCHER*/
@@ -152,14 +223,5 @@ void* Gestione_Server(void* args){
     }
     /*CHIUSURA DEL SOCKET*/
     SYSC(retvalue,close(server_fd),"chiusura server");
-    return NULL;
-}
-
-void* Thread_Handler(void* args){
-    int retvalue;
-    int client_fd = *(int*) args;
-    writef(retvalue,"fine player\n");
-    /*chiusura del socket*/
-    SYSC(retvalue,close(client_fd),"chiusura client-fake");
     return NULL;
 }

@@ -11,6 +11,7 @@ typedef Word_Node * Word_List;
 // Struttura per una voce nella hash table
 typedef struct {
     char *string;
+    int points;
     int is_occupied;
 } Hash_Entry;
 

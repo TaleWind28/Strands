@@ -6,12 +6,12 @@
 #include "../Header/macro.h"
 #include "../Header/Communication.h"
 
-char* Receive_Message(int comm_fd,char type){
+char* Receive_Message(int comm_fd,char* type){
     char* input;int retvalue,len;
     /*LEGGO I PRIMI DUE CARATTERI*/
     SYSC(retvalue,read(comm_fd,&len,sizeof(int)),"nella lettura della lunghezza del messaggio");
     /*MEMORIZZO IL TIPO DEL MESSAGGIO*/
-    SYSC(retvalue,read(comm_fd,&type,sizeof(char)),"nella lettura del messaggio");
+    SYSC(retvalue,read(comm_fd,type,sizeof(char)),"nella lettura del messaggio");
     /*CONTROLLO CHE IL PAYLOAD NON VADA IGNORATO*/
     if (len ==0)return "stringa vuota";
     /*ALLOCO LA STRINGA CONTENTE IL PAYLOAD*/
@@ -44,4 +44,16 @@ void Caps_Lock(char* string){
         }
     }
     return;
+}
+
+void Recognize_Message(char type){
+    if (type == MSG_OK)return;
+    if (type == MSG_ERR);
+    if (type == MSG_REGISTRA_UTENTE);
+    if (type == MSG_MATRICE);
+    if (type == MSG_TEMPO_PARTITA);
+    if (type == MSG_TEMPO_ATTESA);
+    if (type == MSG_PAROLA);
+    if (type == MSG_PUNTI_FINALI);
+    if (type == MSG_PUNTI_PAROLA);
 }
