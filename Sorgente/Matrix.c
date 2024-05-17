@@ -94,15 +94,17 @@ char* Stringify_Matrix(Matrix m){
 }
 
 /*CARICO NELLA MATRICE IL CONTENUTO DI UNA RIGA DI UN FILE*/
-void Load_Matrix(Matrix m, char* path_to_file,char exception,int offset){
-    int fd,retvalue;char* buffer;ssize_t n_read;
+void Load_Matrix(Matrix m, char* path_to_file,char exception,int* offset){
+    int fd,retvalue;char* buffer;
+    
     /*APRO IL FILE IN BASE AL PATH PASSATO*/
     SYSC(fd,open(path_to_file,O_RDONLY),"nell'apertura del file");
+    
     /*LEGGO LA PRIMA RIGA DEL FILE*/
     buffer = File_Read(fd,exception,offset);
-    //SYSC(n_read,read(fd,buffer,buff_size),"nella scrittura sul buffer");
-    /*AGGIORNO LA MATRICE IN BASE ALLA LETTURA*/
     Caps_Lock(buffer);
+    /*AGGIORNO LA MATRICE IN BASE ALLA LETTURA*/
+    
     //writef(retvalue,buffer);
     Adjust_String(buffer,exception);
     Fill_Matrix(m,buffer);
@@ -113,22 +115,26 @@ void Load_Matrix(Matrix m, char* path_to_file,char exception,int offset){
 
  char* File_Read(int fd, char exception, int* offset){
     //18 è la lunghezza massima perchè 16 parole +\n +\0
-    char* buffer= (char*)malloc(18);
+    char* buffer= (char*)malloc(19);
     int retvalue;char carattere;
     /*mi posizioni nell'offset fornito*/
     SYSC(retvalue,lseek(fd,*offset,SEEK_SET),"nel setting dell'offset");
     /*leggo i caratteri della mia matrice*/
-    for(int i =0;i<18;i++){
+    for(int i =0;i<19;i++){
         /*leggo carattere per carattere*/
         SYSC(retvalue,read(fd,&carattere,sizeof(char)),"nella lettura del carattere");
         /*se trovo il \n esco*/
         if (carattere == '\n') break;
         /*se trovo l'eccezione la skippo*/
-        if (carattere!=exception)buffer[i] = carattere;
-        else i--;
+        if (carattere!=exception){
+            buffer[i] = carattere;
+            /*aggiorno l'offset*/
+            SYSC(*offset,lseek(fd,0,SEEK_CUR),"nella memorizzazione dell'offset");
+        }else i--;
     }
-    /*aggiorno l'offset*/
     SYSC(*offset,lseek(fd,0,SEEK_CUR),"nella memorizzazione dell'offset");
+    if (strlen(buffer) != 19)return buffer;
+    buffer = strtok(buffer,"\n");
     /*ritorno il buffer*/
     return buffer;
 }

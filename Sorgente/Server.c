@@ -82,11 +82,15 @@ int main(int argc, char* argv[]){
     /*CREO UN THREAD PER GESTIRE LA CREAZIONE DEL SERVER ED IL DISPATCHING DEI THREAD*/
     SYST(retvalue,pthread_create(&jester,NULL,Gestione_Server,NULL),"nella creazione del giullare");
     int ctr_value =0;
+    int offset = 0;
+    //int i =0;
     /*SFRUTTO IL SERVER COME DEALER*/
     while(ctr_value !=-1){
         /*BISOGNA SCRIVERE GENERATE ROUND IN MODO CHE QUANDO ARRIVA SIGINT SI GESTISCA al terminazione E SI CHIUDA*/
-        ctr_value = Generate_Round();
-        
+        ctr_value = Generate_Round(&offset);
+        // if (i == 12)break;
+        // i++;
+        break;
     }
 
     /*ASPETTO LA TERMINAZIONE DEL THREAD*/
@@ -152,18 +156,22 @@ void Init_Params(int argc, char*argv[],Parametri* params){
     return;
 }
 
-int Generate_Round(){
+int Generate_Round(int* offset){
     //controllo se l'utente mi ha passato il file contenente le matrici
     char random_string[matrice_di_gioco.size];
     if(parametri_server.matrix_file!= NULL){
-        Load_Matrix(matrice_di_gioco,parametri_server.matrix_file,'U');
+        Load_Matrix(matrice_di_gioco,parametri_server.matrix_file,'Q',offset);
     }else{
         Fill_Matrix(matrice_di_gioco,random_string);
     }
     Print_Matrix(matrice_di_gioco,'Q','U');
+    Build_Charmap(matrice_di_gioco);
+    int retvalue;
+    writef(retvalue,"\n");
     //se non ho il file genero casualmente
     //altrimenti leggo dal file in sequenza
     //carico la matrice
+    //sleep(10);
     return 0;
 }
 
@@ -213,7 +221,7 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
     }
     if (type == MSG_PAROLA){
         //valida la stringa
-        if (Validate(matrice_di_gioco,input) != 0){Send_Message(comm_fd,"Parola Illegale",MSG_ERR);return;}
+        if (Validate(matrice_di_gioco,input) == 0){Send_Message(comm_fd,"Parola Illegale",MSG_ERR);return;}
         //controllo parole già indovinate/*questo costa meno che cercare nel dizionario*/
         if(Find_Word(*already_guessed,input)==0){Send_Message(comm_fd,"Parola già inserita\n",MSG_ERR);return;}
         //controllo lessicale
