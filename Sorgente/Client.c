@@ -44,15 +44,16 @@ int main(int argc, char* argv[]){
     SYSC(retvalue,connect(client_fd,(struct sockaddr*)&server_address,server_len),"nella connect");
     writef(retvalue,"connesso\n");
     char type = '0';
-    Send_Message(client_fd,"ciao",MSG_MATRICE);
+    Send_Message(client_fd,"ciao",MSG_REGISTRA_UTENTE);
     char * response = Receive_Message(client_fd,&type);
     free(response);
     Send_Message(client_fd,"ciao",MSG_REGISTRA_UTENTE);
     response = Receive_Message(client_fd,&type);
-    Send_Message(client_fd,"ciao",MSG_REGISTRA_UTENTE);
+
+    Send_Message(client_fd,"matrice",MSG_MATRICE);
     response = Receive_Message(client_fd,&type);
     writef(retvalue,response);
-
+    writef(retvalue,"\n");
     Send_Message(client_fd,"ciao",MSG_CHIUSURA_CONNESSIONE);
     
     /*chiudo il socket*/

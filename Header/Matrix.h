@@ -54,7 +54,7 @@ Charmap* Adjust_Charmap(Charmap* map);
 /*OPERAZIONI SULLE STRUTTURE DATI DEFINITE PRECEDENTEMENTE*/
 
 /*RENDO LA MATRICE UNA STRINGA*/
-void Stringify_Matrix(Matrix m,char* string);
+char* Stringify_Matrix(Matrix m);
 
 /*CONTROLLO SE UN ELEMENTO È RAGGIUNGIBILE*/
 int Is_Reachable(Matrix m,int* old_pos,int* pos);

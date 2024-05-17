@@ -79,9 +79,10 @@ void Fill_Matrix_Row(Matrix m,int row,char* letter){
 }
 
 /*RENDO LA MATRICE UNA STRINGA PER SEMPLIFICARE LE COMUNICAZIONI*/
-void Stringify_Matrix(Matrix m,char* string){
+char* Stringify_Matrix(Matrix m){
     /*INDICE PER SCORRERE LA STRINGA DOVE AVRO LA MATRICE*/
     int k = 0;
+    char* string =(char*)malloc(m.size);
     for(int i =0;i<m.rows;i++){
         for(int j = 0;j<m.columns;j++){
             //printf("carattere:%c\n",m.matrix[i][j]);
@@ -89,7 +90,7 @@ void Stringify_Matrix(Matrix m,char* string){
             k++;
         }
     }
-    return;
+    return string;
 }
 
 /*CARICO NELLA MATRICE IL CONTENUTO DI UNA RIGA DI UN FILE*/

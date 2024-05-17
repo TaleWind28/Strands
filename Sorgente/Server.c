@@ -58,9 +58,14 @@ int Generate_Round();
 Parametri parametri_server;
 Player giocatori[MAX_NUM_CLIENTS];
 Hash_Entry Tabella_Player[MAX_NUM_CLIENTS];
+Matrix matrice_di_gioco;
+
 char* HOST;
 int PORT;
-int game_on;
+int game_on = 0; 
+
+//
+/*MAIN DEL PROGRAMMA*/
 
 int main(int argc, char* argv[]){
     /*DICIARAZIONE VARIABILI*/
@@ -71,21 +76,26 @@ int main(int argc, char* argv[]){
     Init_Params(argc,argv,&parametri_server);
     /*prova tabella hash*/
     init_table(Tabella_Player,MAX_NUM_CLIENTS);
-
+    /*INIZIALIZZO LA MATRICE DI GIOCO*/
+    matrice_di_gioco = Create_Matrix(NUM_ROWS,NUM_COLUMNS);
+    
     /*CREO UN THREAD PER GESTIRE LA CREAZIONE DEL SERVER ED IL DISPATCHING DEI THREAD*/
     SYST(retvalue,pthread_create(&jester,NULL,Gestione_Server,NULL),"nella creazione del giullare");
-    
+    int ctr_value =0;
     /*SFRUTTO IL SERVER COME DEALER*/
-    while(1){
-        int ctr_value = Generate_Round();/*BISOGNA SCRIVERE GENERATE ROUND IN MODO CHE QUANDO ARRIVA SIGINT SI GESTISCA TUTTO E SI CHIUDA*/
-        if (ctr_value == -1) break;
+    while(ctr_value !=-1){
+        /*BISOGNA SCRIVERE GENERATE ROUND IN MODO CHE QUANDO ARRIVA SIGINT SI GESTISCA al terminazione E SI CHIUDA*/
+        ctr_value = Generate_Round();
+        
     }
 
     /*ASPETTO LA TERMINAZIONE DEL THREAD*/
     SYST(retvalue,pthread_join(jester,NULL),"nell'sattesa del jester");
     return 0;
 }
-
+//
+/*FINE MAIN*/
+//
 void Init_Params(int argc, char*argv[],Parametri* params){
     int opt, index = 0;
     /*DEFINISCO UNA STRUCT CON I PARAMETRI OPZIONALI CHE IL PROGRAMMA PUò RICEVERE*/
@@ -108,7 +118,7 @@ void Init_Params(int argc, char*argv[],Parametri* params){
     PORT = atoi(argv[2]);
 
     /*SCORRO TUTTI I PARAMETRI OPZIONALI RICEVUTI IN INPUT*/
-    while((opt =getopt_long(argc,argv,"",logn_opt,&index))!=-1){
+    while((opt = getopt_long(argc,argv,"",logn_opt,&index))!=-1){
         switch(opt){
             case OPT_MATRICI:
                 params->matrix_file = optarg;
@@ -134,7 +144,7 @@ void Init_Params(int argc, char*argv[],Parametri* params){
         }
     }
     if (argc==4){
-        params->matrix_file = MATRICI;
+        params->matrix_file = NULL;
         params->durata_partita = 10;
         params->seed = 1;
         params->file_dizionario = DIZIONARIO;
@@ -143,7 +153,12 @@ void Init_Params(int argc, char*argv[],Parametri* params){
 }
 
 int Generate_Round(){
-    sleep(2);return-1;
+    //controllo se l'utente mi ha passato il file contenente le matrici
+    //se non ho il file genero casualmente
+    //altrimenti leggo dal file in sequenza
+    //carico la matrice
+    sleep(2);
+    return-1;
 
     return 0;
 }
@@ -154,7 +169,6 @@ void* Thread_Handler(void* args){
     int retvalue;char type = '0';char* input;char* username;
     /*RECUPERO IL VALORE PASSATO AL THREAD NELLA PTHREAD CREATE*/
     int client_fd = *(int*) args;
-
     //accetto solo la registrazione dell'utente
     username = Receive_Message(client_fd,&type);
     while(type != MSG_REGISTRA_UTENTE){
@@ -185,12 +199,11 @@ void* Thread_Handler(void* args){
 
 void Choose_Action(int comm_fd, char type,char* input){
     if (type == MSG_MATRICE){
-
         //trasforma la matrice in una stringa
-        char* matrix;
-        
+        char* matrix = Stringify_Matrix(matrice_di_gioco);
         //invio la matrice sotto forma di stringa al client
         Send_Message(comm_fd,matrix,MSG_MATRICE);
+        free(matrix);
         return;
     }
     if (type == MSG_PAROLA){
