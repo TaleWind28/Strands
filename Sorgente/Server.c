@@ -51,7 +51,7 @@ void* Gestione_Server(void* args);
 
 /*GENERAL FUNCTIONS*/
 void Init_Params(int argc, char*argv[],Parametri* params);
-void Choose_Action(int client_fd,char type,char* input);
+void Choose_Action(int client_fd,char type,char* input,Word_List* already_guessed);
 int Generate_Round();
 
 /*GLOBAL VARIABLES*/
@@ -154,12 +154,16 @@ void Init_Params(int argc, char*argv[],Parametri* params){
 
 int Generate_Round(){
     //controllo se l'utente mi ha passato il file contenente le matrici
+    char random_string[matrice_di_gioco.size];
+    if(parametri_server.matrix_file!= NULL){
+        Load_Matrix(matrice_di_gioco,parametri_server.matrix_file,'U');
+    }else{
+        Fill_Matrix(matrice_di_gioco,random_string);
+    }
+    Print_Matrix(matrice_di_gioco,'Q','U');
     //se non ho il file genero casualmente
     //altrimenti leggo dal file in sequenza
     //carico la matrice
-    sleep(2);
-    return-1;
-
     return 0;
 }
 
@@ -169,6 +173,7 @@ void* Thread_Handler(void* args){
     int retvalue;char type = '0';char* input;char* username;
     /*RECUPERO IL VALORE PASSATO AL THREAD NELLA PTHREAD CREATE*/
     int client_fd = *(int*) args;
+    Word_List parole_indovinate = NULL;
     //accetto solo la registrazione dell'utente
     username = Receive_Message(client_fd,&type);
     while(type != MSG_REGISTRA_UTENTE){
@@ -185,7 +190,7 @@ void* Thread_Handler(void* args){
         //prendo l'input dell'utente
         input = Receive_Message(client_fd,&type);
         //Gioco con l'utente
-        Choose_Action(client_fd,type,input);
+        Choose_Action(client_fd,type,input,&parole_indovinate);
         //libero l'input per il prossimo ciclo
         free(input);
     }
@@ -197,7 +202,7 @@ void* Thread_Handler(void* args){
     return NULL;
 }
 
-void Choose_Action(int comm_fd, char type,char* input){
+void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed){
     if (type == MSG_MATRICE){
         //trasforma la matrice in una stringa
         char* matrix = Stringify_Matrix(matrice_di_gioco);
@@ -208,9 +213,16 @@ void Choose_Action(int comm_fd, char type,char* input){
     }
     if (type == MSG_PAROLA){
         //valida la stringa
+        if (Validate(matrice_di_gioco,input) != 0){Send_Message(comm_fd,"Parola Illegale",MSG_ERR);return;}
+        //controllo parole già indovinate/*questo costa meno che cercare nel dizionario*/
+        if(Find_Word(*already_guessed,input)==0){Send_Message(comm_fd,"Parola già inserita\n",MSG_ERR);return;}
+        //controllo lessicale
+        //inserisco la parola indovinata nella lista
+        Push(already_guessed,input);
         //2 possibili send_message 1 con MSG_ERR e 1 con MSG_PUNTI_PAROLA
-        return;
+        Send_Message(comm_fd,"Complimenti hai inserito una parola valida\n",MSG_PUNTI_PAROLA);        return;
     }
+
     if (type == MSG_REGISTRA_UTENTE){
         //dico all'utente che non serve registrarsi ulteriormente
         Send_Message(comm_fd,"Utente già Registrato\n",MSG_ERR);

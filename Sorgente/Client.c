@@ -54,6 +54,10 @@ int main(int argc, char* argv[]){
     response = Receive_Message(client_fd,&type);
     writef(retvalue,response);
     writef(retvalue,"\n");
+    Send_Message(client_fd,"matrice",MSG_PAROLA);
+    response = Receive_Message(client_fd,&type);
+
+    /*messaggio fine del client*/
     Send_Message(client_fd,"ciao",MSG_CHIUSURA_CONNESSIONE);
     
     /*chiudo il socket*/
