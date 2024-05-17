@@ -51,7 +51,7 @@ void* Gestione_Server(void* args);
 
 /*GENERAL FUNCTIONS*/
 void Init_Params(int argc, char*argv[],Parametri* params);
-void Choose_Action(char type);
+void Choose_Action(int client_fd,char type,char* input);
 int Generate_Round();
 
 /*GLOBAL VARIABLES*/
@@ -60,6 +60,7 @@ Player giocatori[MAX_NUM_CLIENTS];
 Hash_Entry Tabella_Player[MAX_NUM_CLIENTS];
 char* HOST;
 int PORT;
+int game_on;
 
 int main(int argc, char* argv[]){
     /*DICIARAZIONE VARIABILI*/
@@ -97,7 +98,7 @@ void Init_Params(int argc, char*argv[],Parametri* params){
     };
 
     /*CONTROLLO PARAMETRI RIGA DI COMANDO*/
-    if(argc < 4){
+    if(argc < 3){
         perror("usare la seguente sintassi: nome programa host porta_server file_matrici");
         exit(EXIT_FAILURE);
     }
@@ -149,13 +150,13 @@ int Generate_Round(){
 
 /*THREAD CHE GESTISCE UN CLIENT*/
 void* Thread_Handler(void* args){
-    int retvalue;
+    /*DICHIARAZIONE VARIABILI*/
+    int retvalue;char type = '0';char* input;char* username;
+    /*RECUPERO IL VALORE PASSATO AL THREAD NELLA PTHREAD CREATE*/
     int client_fd = *(int*) args;
-    char type = '0';
-    
 
-     //accetto solo la registrazione dell'utente
-    char* username = Receive_Message(client_fd,&type);
+    //accetto solo la registrazione dell'utente
+    username = Receive_Message(client_fd,&type);
     while(type != MSG_REGISTRA_UTENTE){
         free(username);
         Send_Message(client_fd,"Inserisci il comando registra utente\n",MSG_ERR);
@@ -165,25 +166,47 @@ void* Thread_Handler(void* args){
 
     /*REGISTRO L'UTENTE NELLA TABELLA DEI GIOCATORT*/
     insert_string(Tabella_Player,username,MAX_NUM_CLIENTS);
-    char* input;
+    
     while(type != MSG_CHIUSURA_CONNESSIONE){
         //prendo l'input dell'utente
         input = Receive_Message(client_fd,&type);
         //Gioco con l'utente
-        Choose_Action(type);
+        Choose_Action(client_fd,type,input);
         //libero l'input per il prossimo ciclo
         free(input);
-        break;
     }
-    writef(retvalue,&type);
+    //stampa di debug
     writef(retvalue,"fine player\n");
+    
     /*chiusura del socket*/
     SYSC(retvalue,close(client_fd),"chiusura client-fake");
     return NULL;
 }
 
-void Choose_Action(char type){
-    return;
+void Choose_Action(int comm_fd, char type,char* input){
+    if (type == MSG_MATRICE){
+
+        //trasforma la matrice in una stringa
+        char* matrix;
+        
+        //invio la matrice sotto forma di stringa al client
+        Send_Message(comm_fd,matrix,MSG_MATRICE);
+        return;
+    }
+    if (type == MSG_PAROLA){
+        //valida la stringa
+        //2 possibili send_message 1 con MSG_ERR e 1 con MSG_PUNTI_PAROLA
+        return;
+    }
+    if (type == MSG_REGISTRA_UTENTE){
+        //dico all'utente che non serve registrarsi ulteriormente
+        Send_Message(comm_fd,"Utente già Registrato\n",MSG_ERR);
+        return; 
+    }
+     if (type == MSG_CHIUSURA_CONNESSIONE){
+        //mando niente al client perchè potrebbe non essere più aperto il file descriptor
+        return;
+    }
 }
 
 /*THREAD CHE GESTISCE LA CREAZIONE DEL SERVER E L'ACCETTAZIONE DEI GIOCATORI*/

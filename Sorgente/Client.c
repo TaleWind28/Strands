@@ -49,6 +49,9 @@ int main(int argc, char* argv[]){
     free(response);
     Send_Message(client_fd,"ciao",MSG_REGISTRA_UTENTE);
     response = Receive_Message(client_fd,&type);
+    Send_Message(client_fd,"ciao",MSG_REGISTRA_UTENTE);
+    response = Receive_Message(client_fd,&type);
+    writef(retvalue,response);
 
     Send_Message(client_fd,"ciao",MSG_CHIUSURA_CONNESSIONE);
     
