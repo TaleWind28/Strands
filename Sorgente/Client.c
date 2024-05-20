@@ -48,7 +48,7 @@ int main(int argc, char* argv[]){
     /*chiamo la connect*/
     SYSC(retvalue,connect(client_fd,(struct sockaddr*)&server_address,server_len),"nella connect");
     writef(retvalue,"connesso\n");
-    char type = '0';
+    //char type = '0';
     char input_buffer[buff_size];
     ssize_t n_read;
     while(1){
@@ -72,14 +72,19 @@ int take_action(char* input, int comm_fd){
             writef(retvalue,HELP_MESSAGE);
             break;
         case 'r': 
+            
             token = strtok(NULL," ");
+            if (token == NULL || token[0] == '\n'){
+                writef(retvalue,"nome utente non valido\n");
+                break;
+            }
             //writef(retvalue,token);
             while(type!= MSG_OK){
                 Send_Message(comm_fd,token,MSG_REGISTRA_UTENTE);
                 char* answer = Receive_Message(comm_fd,&type);
                 writef(retvalue,answer);
                 free(answer);
-                if (type == MSG_OK)break;   
+                if (type == MSG_OK)break; 
             }
             break;
         case 'm':
