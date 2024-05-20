@@ -251,7 +251,7 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
     }
     if (type == MSG_PAROLA){
         //controllo se la parola è componibile nella matrice
-        int retvalue;
+        //int retvalue;
         //writef(retvalue,input);
         if (Validate(matrice_di_gioco,input)!=0){Send_Message(comm_fd,"Parola Illegale\n",MSG_ERR);return;}
         //controllo parole già indovinate/*questo costa meno che cercare nel dizionario,però vva fatto in parallelo col pignoler*/

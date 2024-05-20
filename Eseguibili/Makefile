@@ -84,7 +84,7 @@ $(OBJHC): $(SRCP) $(HDRS4)
 	$(CC) $(CFLAGS) -c $(SRCP) $(HDRS4)
 #Trie.o
 $(OBJHT): $(SRCT) $(HDRS5)
-	$(CC) $(CFLAGS) -c $(SRCP) $(HDRS5)
+	$(CC) $(CFLAGS) -c $(SRCT) $(HDRS5)
 
 obj_clean:
 	@rm -f $(OBJECT-FILES)
