@@ -13,6 +13,7 @@ HDRS1 = $(HEADER)macro.h
 HDRS2 = $(HEADER)$(MATRICI).h
 HDRS3 = $(HEADER)$(CODE).h
 HDRS4 = $(HEADER)$(COMMS).h
+HDRS5 = $(HEADER)$(TRIE).h
 
 #Eseguibili
 SERVER = Server
@@ -20,6 +21,7 @@ CLIENT = Client
 MATRICI = Matrix
 CODE = Queue
 COMMS = Communication
+TRIE = Trie
 
 #File Oggetto
 OBJS = $(SERVER).o
@@ -27,13 +29,15 @@ OBJC = $(CLIENT).o
 OBJHM = $(MATRICI).o
 OBJHQ = $(CODE).o
 OBJHC = $(COMMS).o
-
+OBJHT = $(TRIE).o
+OBJECT-FILES = $(OBJC) $(OBJS) $(OBJHM) $(OBJHQ) $(OBJHC) $(OBJHT)
 #Sorgenti
 SRCS = $(SORGENTE)$(SERVER).c
 SRCC = $(SORGENTE)$(CLIENT).c
 SRCM = $(SORGENTE)$(MATRICI).c
 SRCQ = $(SORGENTE)$(CODE).c
 SRCP = $(SORGENTE)$(COMMS).c
+SRCT = $(SORGENTE)$(TRIE).c
 
 #Input
 PORT = 20000
@@ -54,20 +58,20 @@ all: $(SERVER) $(CLIENT) obj_clean
 $(SERVER): $(OBJS)
 	@echo Server
 	@#compilazione con Server.o e Matrix.o
-	@$(CC) $(CFLAGS) $(OBJS) $(OBJHM) $(OBJHQ) $(OBJHC) -o $(SERVER)
+	@$(CC) $(CFLAGS) $(OBJS) $(OBJHM) $(OBJHQ) $(OBJHC) $(OBJHT) -o $(SERVER)
 
 $(CLIENT): $(OBJC)
 	@echo Client
 	@#compilazione con Client.o e Matrix.o
-	@$(CC) $(CFLAGS) $(OBJC) $(OBJHM) $(OBJHQ) $(OBJHC) -o $(CLIENT)
+	@$(CC) $(CFLAGS) $(OBJC) $(OBJHM) $(OBJHQ) $(OBJHC) $(OBJHT) -o $(CLIENT)
 
 #Dipendenze File Oggetto
 #Server.o
 $(OBJS): $(SRCS) $(HDRS1) $(HDRS2)
-	@$(CC) $(CFLAGS) -c $(SRCS) $(SRCM) $(SRCQ) $(SRCP) $(HDRS1) $(HDRS2) $(HDRS3) $(HDRS4)
+	@$(CC) $(CFLAGS) -c $(SRCS) $(SRCM) $(SRCQ) $(SRCP) $(SRCT) $(HDRS1) $(HDRS2) $(HDRS3) $(HDRS4) $(HDRS5)
 #Client.o
 $(OBJC): $(SRCC) $(HDRS1) $(HDRS2) 
-	@$(CC) $(CFLAGS) -c $(SRCC) $(SRCM) $(SRCQ) $(SRCP) $(HDRS1) $(HDRS2) $(HDRS3) $(HDRS4)
+	@$(CC) $(CFLAGS) -c $(SRCC) $(SRCM) $(SRCQ) $(SRCP) $(SRCT) $(HDRS1) $(HDRS2) $(HDRS3) $(HDRS4) $(HDRS5)
 #Matrix.o
 $(OBJHM): $(SRCM) $(HDRS2) $(HDRS3)
 	$(CC) $(CFLAGS) -c $(SRCM) $(SRCQ) $(HDRS2) $(HDRS3)
@@ -77,12 +81,15 @@ $(OBJHQ): $(SRCQ) $(HDRS3)
 #Communication.o
 $(OBJHC): $(SRCP) $(HDRS4)
 	$(CC) $(CFLAGS) -c $(SRCP) $(HDRS4)
+#Trie.o
+$(OBJHT): $(SRCT) $(HDRS5)
+	$(CC) $(CFLAGS) -c $(SRCP) $(HDRS5)
 
 obj_clean:
-	@rm -f $(OBJC) $(OBJS) $(OBJHM) $(OBJHQ) $(OBJHC)
+	@rm -f $(OBJECT-FILES)
 	@echo file oggetto rimossi
 clear: 
-	@rm -f $(OBJC) $(OBJS) $(OBJHM) $(OBJHQ) $(OBJHC) $(SERVER) $(CLIENT)
+	@rm -f $(OBJECT-FILES) $(SERVER) $(CLIENT)
 
 run-server:
 	@echo server port $(PORT)
