@@ -79,9 +79,10 @@ void Fill_Matrix_Row(Matrix m,int row,char* letter){
 }
 
 /*RENDO LA MATRICE UNA STRINGA PER SEMPLIFICARE LE COMUNICAZIONI*/
-void Stringify_Matrix(Matrix m,char* string){
+char* Stringify_Matrix(Matrix m){
     /*INDICE PER SCORRERE LA STRINGA DOVE AVRO LA MATRICE*/
     int k = 0;
+    char* string =(char*)malloc(m.size);
     for(int i =0;i<m.rows;i++){
         for(int j = 0;j<m.columns;j++){
             //printf("carattere:%c\n",m.matrix[i][j]);
@@ -89,24 +90,53 @@ void Stringify_Matrix(Matrix m,char* string){
             k++;
         }
     }
-    return;
+    return string;
 }
 
 /*CARICO NELLA MATRICE IL CONTENUTO DI UNA RIGA DI UN FILE*/
-void Load_Matrix(Matrix m, char* path_to_file,char exception){
-    int fd,retvalue;char buffer[buff_size];ssize_t n_read;
+void Load_Matrix(Matrix m, char* path_to_file,char exception,int* offset){
+    int fd,retvalue;char* buffer;
+    
     /*APRO IL FILE IN BASE AL PATH PASSATO*/
     SYSC(fd,open(path_to_file,O_RDONLY),"nell'apertura del file");
+    
     /*LEGGO LA PRIMA RIGA DEL FILE*/
-    SYSC(n_read,read(fd,buffer,buff_size),"nella scrittura sul buffer");
-    /*AGGIORNO LA MATRICE IN BASE ALLA LETTURA*/
+    buffer = File_Read(fd,exception,offset);
     Caps_Lock(buffer);
+    /*AGGIORNO LA MATRICE IN BASE ALLA LETTURA*/
+    
     //writef(retvalue,buffer);
     Adjust_String(buffer,exception);
     Fill_Matrix(m,buffer);
     /*CHIUDO IL FILE*/
     SYSC(retvalue,close(fd),"nella chiusura del file descriptor");
     return;
+}
+
+ char* File_Read(int fd, char exception, int* offset){
+    //18 è la lunghezza massima perchè 16 parole +\n +\0
+    char* buffer= (char*)malloc(19);
+    int retvalue;char carattere;
+    /*mi posizioni nell'offset fornito*/
+    SYSC(retvalue,lseek(fd,*offset,SEEK_SET),"nel setting dell'offset");
+    /*leggo i caratteri della mia matrice*/
+    for(int i =0;i<19;i++){
+        /*leggo carattere per carattere*/
+        SYSC(retvalue,read(fd,&carattere,sizeof(char)),"nella lettura del carattere");
+        /*se trovo il \n esco*/
+        if (carattere == '\n') break;
+        /*se trovo l'eccezione la skippo*/
+        if (carattere!=exception){
+            buffer[i] = carattere;
+            /*aggiorno l'offset*/
+            SYSC(*offset,lseek(fd,0,SEEK_CUR),"nella memorizzazione dell'offset");
+        }else i--;
+    }
+    SYSC(*offset,lseek(fd,0,SEEK_CUR),"nella memorizzazione dell'offset");
+    if (strlen(buffer) != 19)return buffer;
+    buffer = strtok(buffer,"\n");
+    /*ritorno il buffer*/
+    return buffer;
 }
 
 void Adjust_String(char* string,char x){

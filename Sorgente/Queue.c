@@ -111,6 +111,7 @@ void insert_string(Hash_Entry *table, char *str,unsigned int Table_size) {
         }
     }
     table[index].string = str;  // Copia della stringa
+    table[index].points = 0;
     table[index].is_occupied = 1;
 }
 

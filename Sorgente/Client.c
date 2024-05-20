@@ -15,12 +15,17 @@
 
 #define NUM_ROWS 4
 #define NUM_COLUMNS 4
-
+#define HELP_MESSAGE "Per prima cosa se non lo hai già fatto resgistrati mediante il comando registra_utente seguito dal tuo nome, poi potrai usare i seguenti comandi:\np seguito da una parola per indovinare una parola presente nella matrice che vedi a schermo\n matrice per visualizzare a schermo la matrice ed il tempo residuo di gioco\naiuto che ti mostra i comandi a te disponibili\nfine che ti fa uscire dalla partita in corso\n"
 void Play(int client_fd);
+
+
+Matrix matrice_player;
+
+int take_action(char* input, int comm_fd);
 
 int main(int argc, char* argv[]){
     /*dichiarazione ed inizializzazione variabili*/
-    int retvalue, client_fd;char matrice_stringa[buff_size];char msg_type = '0';
+    int retvalue, client_fd;
     struct sockaddr_in server_address;
     socklen_t server_len = sizeof(server_address);
     /*INIZIALIZZAZIONE VARIABILI IN BASE ALL'ARGOMENTO DELLA RIGA DI COMANDO*/
@@ -42,56 +47,70 @@ int main(int argc, char* argv[]){
         
     /*chiamo la connect*/
     SYSC(retvalue,connect(client_fd,(struct sockaddr*)&server_address,server_len),"nella connect");
-    
-    /*CREO LA MATRICE DA FAR UTILIZZARE AL CLIENT*/
-    Matrix client_matrix = Create_Matrix(NUM_ROWS,NUM_COLUMNS);
-
-    /*LEGGO LA MATRICE PASSATA DAL SERVER*/
-    strcpy(matrice_stringa,Receive_Message(client_fd,msg_type));
-    /*RIEMPIO LA MATRICE COI DATI DEL SERVER*/
-    Fill_Matrix(client_matrix,matrice_stringa);
-    /*COSTRUISCO LA MAPPA DEI CARATTERI DELLA MATRICE*/
-    Build_Charmap(client_matrix);
-    /*STAMPO LA MATRICE A SCHERMO*/
-    Print_Matrix(client_matrix,'Q','u');
-    /*GIOCO LA PARTITA*/
-    Play(client_fd);
-
+    writef(retvalue,"connesso\n");
+    //char type = '0';
+    char input_buffer[buff_size];
+    ssize_t n_read;
+    while(1){
+        SYSC(n_read,read(STDIN_FILENO,input_buffer,buff_size),"nella lettura dell'input utente");
+        char* input = (char*)malloc(n_read+1);
+        strncpy(input,input_buffer,n_read);
+        input[n_read] = '\0';
+        if (take_action(input,client_fd)==-1)break;
+        free(input);
+    }
     /*chiudo il socket*/
     SYSC(retvalue,close(client_fd),"chiusura del cliente");
 }
 
-void Play(int client_fd){
-    /*DICHIARAZIONE VARIABILI*/
-    int retvalue;ssize_t n_read;char msg_type = '0';
-    
-    /*IL CLIENT PUO INIZIARE A GIOCARE*/
-    while (1){
-        /*TERMINAZIONE DELLA PARTITA DA CAMBIARE QUANDO AVRò LA SPECIFICA*/
-        /*STAMPA A SCHERMO*/
-        writef(retvalue,"Prompt Paroliere\n");
-        /*ALLOCO UN PUNTATORE A CARATTERI DOVE MEMORIZZARE GLI INPUT UTENTE*/
-        char* input = (char*)malloc(buff_size);
-        /*ASPETTO UN INPUT DALL'UTENTE*/
-        SYSC(n_read,read(STDIN_FILENO,input,buff_size),"nella lettura dell'input del cliente");
-        /*CONTROLLO SE L'UTENTE HA PER SBAGLIO INSERITO UN \n COME PAROLA*/
-        if(n_read == 1){
-            strcpy(input,"l\n");
-            n_read = 1;
-        }
-        char* token = strtok(input,"\n"); 
-        Caps_Lock(token);
-        /*SCRIVO SUL FILE DESCRIPTOR CONDIVISO COL SERVER IL MESSAGGIO DA MANDARE*/
-        Send_Message(client_fd,token,MSG_PAROLA);
-        /*ASPETTO CHE MI VENGA COMUNICATO IL PUNTEGGIO*/
-        char* score = Receive_Message(client_fd,msg_type);
-        /*SCRIVO A VIDEO IL PUNTEGGIO*/
-        SYSC(retvalue,write(STDOUT_FILENO,score,strlen(score)),"nella comunicazione del punteggio a video");
-        free(input);
-    }
-    /*leggo il totale*/
-    char* total_score = Receive_Message(client_fd,msg_type);
-    /*COMUNICO A VIDEO IL PUNTEGGIO TOTALE*/
-    SYSC(retvalue,write(STDOUT_FILENO,total_score,strlen(total_score)),"nella comunicazione del punteggio totale");
-    return;
+int take_action(char* input, int comm_fd){
+    int retvalue;
+    char type = MSG_ERR;
+    char* token = strtok(input, " ");
+    switch(input[0]){
+        case 'a':
+            writef(retvalue,HELP_MESSAGE);
+            break;
+        case 'r': 
+            
+            token = strtok(NULL," ");
+            if (token == NULL || token[0] == '\n'){
+                writef(retvalue,"nome utente non valido\n");
+                break;
+            }
+            //writef(retvalue,token);
+            while(type!= MSG_OK){
+                Send_Message(comm_fd,token,MSG_REGISTRA_UTENTE);
+                char* answer = Receive_Message(comm_fd,&type);
+                writef(retvalue,answer);
+                free(answer);
+                if (type == MSG_OK)break; 
+            }
+            break;
+        case 'm':
+            Send_Message(comm_fd,"matrice",MSG_MATRICE);
+            char* matrice = Receive_Message(comm_fd,&type);
+            //writef(retvalue,matrice);
+            matrice_player = Create_Matrix(4,4);
+            Fill_Matrix(matrice_player,matrice);
+            Print_Matrix(matrice_player,4,4);
+            free(matrice);
+            break;
+        case 'p':
+            token = strtok(NULL,"\n");
+            Caps_Lock(token);
+            Send_Message(comm_fd,token,MSG_PAROLA);
+            char* answer = Receive_Message(comm_fd,&type);
+            writef(retvalue,answer);
+            free(answer);
+            break;
+        case 'f':
+            Send_Message(comm_fd,"fine",MSG_CHIUSURA_CONNESSIONE);
+            return -1;
+            break;
+        default:
+            writef(retvalue,"comando non disponibile, digitare aiuto per una lista dettagliata");
+            break;
+    }   
+    return 0;
 }

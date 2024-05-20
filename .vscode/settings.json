@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "communication.h": "c"
+        "communication.h": "c",
+        "unistd.h": "c"
     }
 }

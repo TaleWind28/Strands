@@ -42,7 +42,9 @@ void Fill_Matrix_Row(Matrix m,int row,char* letter);
 void Fill_Matrix(Matrix m,char* letters);
 
 /*CARICA IN UNA MATRICE UNA RIGA DI UN FILE*/
-void Load_Matrix(Matrix m, char* path_to_file,char exception);
+void Load_Matrix(Matrix m, char* path_to_file,char exception,int* offset);
+
+char* File_Read(int fd, char exception, int*offset);
 
 /*RIEMPIO LA MAPPATURA DEI CARATTERI DELLA MATRICE*/
 void Build_Charmap(Matrix m);
@@ -54,7 +56,7 @@ Charmap* Adjust_Charmap(Charmap* map);
 /*OPERAZIONI SULLE STRUTTURE DATI DEFINITE PRECEDENTEMENTE*/
 
 /*RENDO LA MATRICE UNA STRINGA*/
-void Stringify_Matrix(Matrix m,char* string);
+char* Stringify_Matrix(Matrix m);
 
 /*CONTROLLO SE UN ELEMENTO È RAGGIUNGIBILE*/
 int Is_Reachable(Matrix m,int* old_pos,int* pos);
