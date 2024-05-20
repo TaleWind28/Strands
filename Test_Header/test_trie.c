@@ -17,6 +17,7 @@ int main(){
     insert_Trie(t,"CIA");
     insert_Trie(t,"CIMA");
     insert_Trie(t,"COMA");
+    printf("%d\n",search_Trie("COMA",t));
     char buffer[100];
     Print_Trie(t,buffer,0);
     return 0;

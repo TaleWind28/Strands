@@ -5,7 +5,6 @@
 #include <errno.h>
 #include "../Header/macro.h"
 #include "../Header/Trie.h"
-#define MAX_CHAR 26
 
 Trie* create_node(){
     //alloco il nodo
@@ -21,7 +20,7 @@ Trie* create_node(){
 
 int search_Trie(char* word, Trie* trie){
     //caso base, il trie è vuoto
-    if (trie == NULL)return -1;
+    if (trie == NULL)return 0;
     //sono arrivato in fondo alla parola
     if (*word == '\0'){
         return trie->is_word;
@@ -45,11 +44,8 @@ int insert_Trie(Trie* root, char* word){
     }
     //caso base
     if (*word == '\0'){
-        if (root->is_word == -1){
-            root->is_word = 0;
-            return 0;
-        }
-        return -1;
+        root->is_word = 0;
+        return 0;
         
     }
     //cerco il prossimo figlio

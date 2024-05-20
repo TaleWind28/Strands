@@ -18,6 +18,7 @@
 #include "../Header/Matrix.h"
 #include "../Header/Queue.h"
 #include "../Header/Communication.h"
+#include "../Header/Trie.h"
 
 #define MAX_NUM_CLIENTS 32
 #define NUM_ROWS 4
@@ -53,12 +54,14 @@ void* Gestione_Server(void* args);
 void Init_Params(int argc, char*argv[],Parametri* params);
 void Choose_Action(int client_fd,char type,char* input,Word_List* already_guessed);
 int Generate_Round();
+void Load_Dictionary(Trie* Dictionary, char* path_to_dict);
 
 /*GLOBAL VARIABLES*/
 Parametri parametri_server;
 Player giocatori[MAX_NUM_CLIENTS];
 Hash_Entry Tabella_Player[MAX_NUM_CLIENTS];
 Matrix matrice_di_gioco;
+Trie* Dizionario;
 
 char* HOST;
 int PORT;
@@ -76,6 +79,9 @@ int main(int argc, char* argv[]){
     Init_Params(argc,argv,&parametri_server);
     /*prova tabella hash*/
     init_table(Tabella_Player,MAX_NUM_CLIENTS);
+    //carico il dizionario in memoria
+    Dizionario = create_node();
+    Load_Dictionary(Dizionario,parametri_server.file_dizionario);
     /*INIZIALIZZO LA MATRICE DI GIOCO*/
     matrice_di_gioco = Create_Matrix(NUM_ROWS,NUM_COLUMNS);
     
@@ -175,6 +181,28 @@ int Generate_Round(int* offset){
     return 0;
 }
 
+void Load_Dictionary(Trie* Dictionary, char* path_to_dict){
+    int retvalue,dizionario_fd;
+    ssize_t n_read;
+    struct stat file_stat;
+    SYSC(retvalue,stat(path_to_dict,&file_stat),"nella stat del dizionario");
+    char* buffer = (char*)malloc(file_stat.st_size+1);
+    SYSC(dizionario_fd,open(path_to_dict,O_RDONLY),"nell'apertura del dizionario");
+    SYSC(n_read,read(dizionario_fd,buffer,file_stat.st_size),"nella lettura dal dizionario");
+    if (n_read == 0)return;
+    buffer[n_read] = '\0';
+    char* token = strtok(buffer,"\n");
+    while(token!=NULL){
+        Caps_Lock(token);
+        insert_Trie(Dictionary,token);
+        token = strtok(NULL,"\n");
+    }
+    //Print_Trie(Dizionario,buffer,0);
+    free(buffer);
+    SYSC(retvalue,close(dizionario_fd),"nella chiusura del dizionario");
+    
+    return;
+}
 /*THREAD CHE GESTISCE UN CLIENT*/
 void* Thread_Handler(void* args){
     /*DICHIARAZIONE VARIABILI*/
@@ -196,6 +224,8 @@ void* Thread_Handler(void* args){
     while(type != MSG_CHIUSURA_CONNESSIONE){
         //prendo l'input dell'utente
         input = Receive_Message(client_fd,&type);
+        // writef(retvalue,input);
+        // writef(retvalue,"\n");
         //Gioco con l'utente
         Choose_Action(client_fd,type,input,&parole_indovinate);
         //libero l'input per il prossimo ciclo
@@ -220,15 +250,18 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
         return;
     }
     if (type == MSG_PAROLA){
-        //valida la stringa
-        if (Validate(matrice_di_gioco,input) == 0){Send_Message(comm_fd,"Parola Illegale",MSG_ERR);return;}
-        //controllo parole già indovinate/*questo costa meno che cercare nel dizionario*/
+        //controllo se la parola è componibile nella matrice
+        int retvalue;
+        //writef(retvalue,input);
+        if (Validate(matrice_di_gioco,input)!=0){Send_Message(comm_fd,"Parola Illegale\n",MSG_ERR);return;}
+        //controllo parole già indovinate/*questo costa meno che cercare nel dizionario,però vva fatto in parallelo col pignoler*/
         if(Find_Word(*already_guessed,input)==0){Send_Message(comm_fd,"Parola già inserita\n",MSG_ERR);return;}
-        //controllo lessicale
+        //controllo lessicale/*da affidare ad un thread*/
+        if(search_Trie(input,Dizionario)==-1){Send_Message(comm_fd,"la parola non esiste in italiano\n",MSG_ERR);return;}
         //inserisco la parola indovinata nella lista
         Push(already_guessed,input);
         //2 possibili send_message 1 con MSG_ERR e 1 con MSG_PUNTI_PAROLA
-        Send_Message(comm_fd,"Complimenti hai inserito una parola valida\n",MSG_PUNTI_PAROLA);        return;
+        Send_Message(comm_fd,"Complimenti hai inserito una parola valida\n",MSG_PUNTI_PAROLA);return;
     }
 
     if (type == MSG_REGISTRA_UTENTE){

@@ -53,9 +53,18 @@ int main(int argc, char* argv[]){
 
     Send_Message(client_fd,"matrice",MSG_MATRICE);
     response = Receive_Message(client_fd,&type);
-    writef(retvalue,response);
-    writef(retvalue,"\n");
-    Send_Message(client_fd,"ATLC",MSG_PAROLA);
+    Matrix mat = Create_Matrix(4,4);
+    Fill_Matrix(mat,response);
+    Print_Matrix(mat,4,4);
+    char input[256];
+    ssize_t lettura = read(STDIN_FILENO,input,256);
+    char* input_tok = (char*) malloc(lettura-1);
+    if (lettura <3)strcpy(input,"lol\n");
+    input_tok = strtok(input,"\n");
+    Caps_Lock(input_tok);
+    printf("strlen:%d\n",strlen(input_tok));
+    //write(STDOUT_FILENO,&len,sizeof(int));
+    Send_Message(client_fd,input_tok,MSG_PAROLA);
     response = Receive_Message(client_fd,&type);
     writef(retvalue,response);
     /*messaggio fine del client*/

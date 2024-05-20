@@ -2,7 +2,7 @@
 CC = gcc
 
 #Flag di compilazione 
-CFLAGS = -Wall -pedantic -pthread -g
+CFLAGS = -Wall -pedantic -pthread -g -O0
 
 #Directories
 HEADER = ../Header/
@@ -45,7 +45,8 @@ PORT2 = 30000
 HOST = 127.0.0.1
 
 #Test
-SERVER_RUN = ./$(SERVER) $(HOST) $(PORT) --matrici ../'File Testuali'/Matrici.txt --durata 2 --seed 1 --diz ../'File Testuali'/Dizionario.txt 
+SERVER_RUN = ./$(SERVER) $(HOST) $(PORT) --matrici ../'File Testuali'/Matrici.txt --durata 2 --seed 1 --diz ../'File Testuali'/Dizionario.txt
+DEBUG-RUN = ./$(SERVER) $(HOST) $(PORT)  
 SERVER_RUN2 = ./$(SERVER) $(HOST) $(PORT2) ../'File Testuali'/Matrici.txt
 CLIENT_RUN = ./$(CLIENT) $(HOST) $(PORT)
 CLIENT_RUN2 = ./$(CLIENT) $(HOST) $(PORT2)
@@ -113,7 +114,7 @@ debug-client:
 
 debug-server:
 	@echo server port $(PORT)
-	@gdb $(SERVER_RUN)
+	@gdb $(DEBUG-RUN)
 
 test-allC:
 	@echo client test
