@@ -79,9 +79,17 @@ int main(int argc, char* argv[]){
     Init_Params(argc,argv,&parametri_server);
     /*prova tabella hash*/
     init_table(Tabella_Player,MAX_NUM_CLIENTS);
-    //carico il dizionario in memoria
+    
     Dizionario = create_node();
+    //carico il dizionario in memoria
     Load_Dictionary(Dizionario,parametri_server.file_dizionario);
+    
+    //debug
+    // int l = search_Trie("CIAO",Dizionario);
+    // char mess[buff_size];
+    // sprintf(mess,"%d\n",l);
+    // writef(retvalue,mess);
+    
     /*INIZIALIZZO LA MATRICE DI GIOCO*/
     matrice_di_gioco = Create_Matrix(NUM_ROWS,NUM_COLUMNS);
     
@@ -94,8 +102,6 @@ int main(int argc, char* argv[]){
     while(ctr_value !=-1){
         /*BISOGNA SCRIVERE GENERATE ROUND IN MODO CHE QUANDO ARRIVA SIGINT SI GESTISCA al terminazione E SI CHIUDA*/
         ctr_value = Generate_Round(&offset);
-        // if (i == 12)break;
-        // i++;
         break;
     }
 
@@ -182,22 +188,25 @@ int Generate_Round(int* offset){
 }
 
 void Load_Dictionary(Trie* Dictionary, char* path_to_dict){
-    int retvalue,dizionario_fd;
-    ssize_t n_read;
-    struct stat file_stat;
+    int retvalue,dizionario_fd;ssize_t n_read;struct stat file_stat;
+    //invoco la stat per capire le dimensioni del file
     SYSC(retvalue,stat(path_to_dict,&file_stat),"nella stat del dizionario");
+    //alloco un buffer per fare una sola lettura
     char* buffer = (char*)malloc(file_stat.st_size+1);
     SYSC(dizionario_fd,open(path_to_dict,O_RDONLY),"nell'apertura del dizionario");
+    //leggo dal dizionario
     SYSC(n_read,read(dizionario_fd,buffer,file_stat.st_size),"nella lettura dal dizionario");
+    //controllo di aver letto qualcosa
     if (n_read == 0)return;
+    //metto l'ultimo elemento del buffer come terminatore nullo
     buffer[n_read] = '\0';
+    Caps_Lock(buffer);
+    //tokenizzo sul \n
     char* token = strtok(buffer,"\n");
     while(token!=NULL){
-        Caps_Lock(token);
         insert_Trie(Dictionary,token);
         token = strtok(NULL,"\n");
     }
-    //Print_Trie(Dizionario,buffer,0);
     free(buffer);
     SYSC(retvalue,close(dizionario_fd),"nella chiusura del dizionario");
     

@@ -62,7 +62,6 @@ int main(int argc, char* argv[]){
     if (lettura <3)strcpy(input,"lol\n");
     input_tok = strtok(input,"\n");
     Caps_Lock(input_tok);
-    printf("strlen:%d\n",strlen(input_tok));
     //write(STDOUT_FILENO,&len,sizeof(int));
     Send_Message(client_fd,input_tok,MSG_PAROLA);
     response = Receive_Message(client_fd,&type);
