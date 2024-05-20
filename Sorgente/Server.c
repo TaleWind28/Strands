@@ -221,10 +221,11 @@ void* Thread_Handler(void* args){
     Word_List parole_indovinate = NULL;
     //accetto solo la registrazione dell'utente
     username = Receive_Message(client_fd,&type);
-    while(type != MSG_REGISTRA_UTENTE){
+    while(type != MSG_REGISTRA_UTENTE && type != MSG_CHIUSURA_CONNESSIONE){
         Send_Message(client_fd,"Inserisci il comando registra utente\n",MSG_ERR);
         username = Receive_Message(client_fd,&type);
     }
+    if (type == MSG_CHIUSURA_CONNESSIONE){SYSC(retvalue,close(client_fd),"chiusura client-fake");writef(retvalue,"chiusura player\n");return NULL;}
     Send_Message(client_fd,"Registrazione avvenuta con successo\n",MSG_OK);
 
     /*REGISTRO L'UTENTE NELLA TABELLA DEI GIOCATORT*/
