@@ -11,30 +11,38 @@ SORGENTE = ../Sorgente/
 #Header
 HDRS = $(HEADER)$(MATRICI).h
 HDRS2 = $(HEADER)$(COMMS).h
+HDRS3 = $(HEADER)$(TRIE).h
 
 #Eseguibili
 MATRICI = Matrix
 TEST = test_matrix
 COMMS = Communication
+TRIE = Trie
+TEST3 = test_trie
 TEST2 = test_comms
 
 #File Sorgente
 SRCM = $(SORGENTE)$(MATRICI).c
-SRCT = $(TEST).c
+SRCT1 = $(TEST).c
 SRCC = $(SORGENTE)$(COMMS).c
 SRCT2 = $(TEST2).c
+SRCT = $(SORGENTE)$(TRIE).c
+SRCT3 = $(TEST3).c
 
 #File Oggetto
 OBJM = $(MATRICI).o
 OBJT = $(TEST).o
 OBJC = $(COMMS).o
 OBJT2 = $(TEST2).o
+OBJTT = $(TRIE).o
+OBJT3 = $(TEST3).o
 
 #Test
 COMMON = ./$(TEST) 4 4 oveclihceolratou
 UNCOMMON = ./$(TEST) 4 4 atlcioquadvesisbi
+
 #Target
-all: $(TEST) $(TEST2) obj_clean
+all: $(TEST) $(TEST2) $(TEST3) obj_clean
 #Test_Matrix
 $(TEST): $(OBJT)
 	@echo matrici
@@ -44,25 +52,36 @@ $(TEST2): $(OBJT2)
 	@echo Comms
 	@$(CC) $(CFLAGS) $(OBJT2) $(OBJC) -o $(TEST2)
 
+#Test_Trie
+$(TEST3): $(OBJT3)
+	@echo Trie
+	@$(CC) $(CFLAGS) $(OBJT3) $(OBJTT) -o $(TEST3)
+
+#Test_Trie.o
+$(OBJT3): $(SRCT3) $(HDRS3)
+	@echo creo test_comms.o
+	$(CC) $(CFLAGS) -c $(SRCT3) $(SRCT) $(HDRS3)
+	@echo creato
+
 #Test_Comms.o
 $(OBJT2): $(SRCT2) $(HDRS2)
 	@echo creo test_comms.o
 	$(CC) $(CFLAGS) -c $(SRCT2) $(SRCC) $(HDRS2)
 
 #Test_Matrix.o
-$(OBJT): $(SRCT) $(HDRS) $(HDRS2)
-	$(CC) $(CFLAGS) -c $(SRCT) $(SRCM) $(SRCC) $(HDRS) $(HDRS2)
+$(OBJT): $(SRCT1) $(HDRS) $(HDRS2)
+	$(CC) $(CFLAGS) -c $(SRCT1) $(SRCM) $(SRCC) $(HDRS) $(HDRS2)
 
 #Communication.o
 $(OBJC): $(SRCC) $(HDRS2)
 	$(CC) $(CFLAGS) -c $(SRCC) $(HDRS2)
-#Matrix.o
-$(OBJM): $(SRCM) $(HDRS)
-	$(CC) $(CFLAGS) -c $(SRCM) $(HDRS)
 
+#Trie.o
+$(OBJTT): $(SRCM) $(HDRS3)
+	$(CC) $(CFLAGS) -c $(SRCT) $(HDRS3)
 
 obj_clean: 
-	@rm -f $(OBJM) $(OBJT) $(OBJC) $(OBJT2)
+	@rm -f $(OBJM) $(OBJT) $(OBJC) $(OBJT2) $(OBJT3) $(OBJTT)
 	@echo file oggetto rimossi
 
 clear:

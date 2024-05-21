@@ -15,17 +15,17 @@ int main(int argc,char* argv[]){
     }
     int rows = atoi(argv[1]);
     int columns = atoi(argv[2]);
-    char* input = argv[3];
+    //char* input = argv[3];
     char* word = argv[4];
     char* m_string = argv[5];
     Matrix matrix = Create_Matrix(rows,columns);
-    Load_Matrix(matrix,m_string,'U');
+    Load_Matrix(matrix,m_string,'U',0);
     //Adjust_String(input,'u');
     //Fill_Matrix(matrix,input);
     Print_Matrix(matrix,'Q','U');
     
     char* string = (char*)malloc(matrix.size*(sizeof(char)));
-    Stringify_Matrix(matrix,string);
+    string = Stringify_Matrix(matrix);
     char message[buff_size];
     int retvalue;
     sprintf(message,"stringa matriciale indotta: %s\n",string);
