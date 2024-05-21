@@ -67,24 +67,22 @@ int take_action(char* input, int comm_fd){
     int retvalue;
     char type = MSG_ERR;
     char* token = strtok(input, " ");
+    char* answer;
     switch(input[0]){
         case 'a':
             writef(retvalue,HELP_MESSAGE);
             break;
         case 'r': 
             
-            token = strtok(NULL," ");
+            token = strtok(NULL,"\n");
             if (token == NULL || token[0] == '\n'){
                 writef(retvalue,"nome utente non valido\n");
                 break;
             }
-            //writef(retvalue,token);
-            while(type!= MSG_OK){
-                Send_Message(comm_fd,token,MSG_REGISTRA_UTENTE);
-                char* answer = Receive_Message(comm_fd,&type);
-                writef(retvalue,answer);
-                free(answer);
-            }
+            Send_Message(comm_fd,token,MSG_REGISTRA_UTENTE);
+            answer = Receive_Message(comm_fd,&type);
+            writef(retvalue,answer);
+            free(answer);
             break;
         case 'm':
             Send_Message(comm_fd,"matrice",MSG_MATRICE);
@@ -103,7 +101,7 @@ int take_action(char* input, int comm_fd){
                 Caps_Lock(token);
                 Send_Message(comm_fd,token,MSG_PAROLA);
             }
-            char* answer = Receive_Message(comm_fd,&type);
+            answer = Receive_Message(comm_fd,&type);
             writef(retvalue,answer);
             free(answer);
             break;

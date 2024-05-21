@@ -219,10 +219,14 @@ void* Thread_Handler(void* args){
     Word_List parole_indovinate = NULL;
     //accetto solo la registrazione dell'utente
     username = Receive_Message(client_fd,&type);
-    while(type != MSG_REGISTRA_UTENTE && type != MSG_CHIUSURA_CONNESSIONE && WL_Find_Word(Players,username)==0){
+    //controllo che l'username sia valido
+    int exhists = WL_Find_Word(Players,username);
+    while((type != MSG_REGISTRA_UTENTE && type != MSG_CHIUSURA_CONNESSIONE) || exhists == 0){
         free(username);
-        Send_Message(client_fd,"Inserisci il comando registra utente\n",MSG_ERR);
+        if (exhists == 0)Send_Message(client_fd,"Username già presente",MSG_ERR);
+        else Send_Message(client_fd,"Inserisci il comando registra utente\n",MSG_ERR);
         username = Receive_Message(client_fd,&type);
+        exhists = WL_Find_Word(Players,username);
     }
     if (type == MSG_CHIUSURA_CONNESSIONE){SYSC(retvalue,close(client_fd),"chiusura client-fake");writef(retvalue,"chiusura player\n");return NULL;}
     Send_Message(client_fd,"Registrazione avvenuta con successo\n",MSG_OK);
@@ -232,21 +236,32 @@ void* Thread_Handler(void* args){
     pthread_mutex_lock(&player_mutex);
     //inserisco player
     WL_Push(&Players,username);
+    //stampa di debug
+    Print_WList(Players);
     //rilascio la mutex
     pthread_mutex_unlock(&player_mutex);
-    //writef(retvalue,"registrato\n");
-    Print_WList(Players);
+   
 
     while(type != MSG_CHIUSURA_CONNESSIONE){
         //prendo l'input dell'utente
         input = Receive_Message(client_fd,&type);
         //Gioco con l'utente
         Choose_Action(client_fd,type,input,&parole_indovinate);
-        
         //libero l'input per il prossimo ciclo
         free(input);
     }
     
+    pthread_mutex_lock(&player_mutex);
+    //writef(retvalue,username);
+    //inserisco player
+    char mess[buff_size];
+    sprintf(mess,"splice:%d\n",WL_Splice(&Players,username));
+    writef(retvalue,mess);
+    //stampa per debug
+    
+    //rilascio la mutex
+    pthread_mutex_unlock(&player_mutex); 
+
     //stampa di debug
     writef(retvalue,"fine player\n");
     

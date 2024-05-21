@@ -22,6 +22,8 @@ char* WL_Peek(Word_List wl);
 /*CERCO UN ELEMENTO ALL'INTERNO DELLA LISTA*/
 int WL_Find_Word(Word_List wl, char* word);
 
+int WL_Splice(Word_List* wl,char* word);
+
 /*STAMPO LA LISTA*/
 int Print_WList(Word_List wl);
 

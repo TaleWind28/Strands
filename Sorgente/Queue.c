@@ -65,6 +65,29 @@ int WL_Find_Word(Word_List wl,char* word){
     return WL_Find_Word(wl->next,word);
 }
 
+int WL_Splice(Word_List* wl,char* word){
+    int retvalue;
+    if (wl == NULL )return -1;
+    Word_Node* prev = NULL;
+    Word_Node* current = *(wl);
+    //controllo se il prossimo nodo è quello che cerco
+    while(current !=NULL && strcmp(current->word,word)!=0){
+        prev = current;
+        current = current->next;
+    }
+        if (current != NULL) {
+        // Se è il primo nodo
+            if (prev == NULL) {
+                (*wl) = (*wl)->next;
+            } else {
+                prev->next = current->next;
+            }
+        // Libera la memoria occupata dalla stringa
+        free(current->word);
+        free(current);
+    }
+    return 0;
+}
 /*STAMPO LA LISTA*/
 int Print_WList(Word_List wl){
     /*caso base*/
@@ -72,7 +95,7 @@ int Print_WList(Word_List wl){
     int retvalue;
     char print[buff_size];
     /*stampo l'elemento*/
-    sprintf(print,"%s",wl->word);
+    sprintf(print,"%s\n",wl->word);
     writef(retvalue,print);
     /*chiamata ricorsiva*/
     return Print_WList(wl->next);
