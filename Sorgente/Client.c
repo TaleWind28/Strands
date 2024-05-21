@@ -98,8 +98,12 @@ int take_action(char* input, int comm_fd){
             break;
         case 'p':
             token = strtok(NULL,"\n");
-            Caps_Lock(token);
-            Send_Message(comm_fd,token,MSG_PAROLA);
+            if (token == NULL || token[0] == '\n'){
+                Send_Message(comm_fd,"lol\n",MSG_PAROLA);
+            }else{
+                Caps_Lock(token);
+                Send_Message(comm_fd,token,MSG_PAROLA);
+            }
             char* answer = Receive_Message(comm_fd,&type);
             writef(retvalue,answer);
             free(answer);
@@ -109,7 +113,7 @@ int take_action(char* input, int comm_fd){
             return -1;
             break;
         default:
-            writef(retvalue,"comando non disponibile, digitare aiuto per una lista dettagliata");
+            writef(retvalue,"comando non disponibile, digitare aiuto per una lista dettagliata\n");
             break;
     }   
     return 0;

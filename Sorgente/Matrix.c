@@ -148,10 +148,6 @@ void Adjust_String(char* string,char x){
         }
     }
     string[j] = '\0';
-    //char mess[buff_size];
-    // int retvalue;
-    // sprintf(mess,"stringa:%s,lunghezza:%d\n",string,strlen(string));
-    // writef(retvalue,mess);
     return;
 }
 
@@ -185,13 +181,11 @@ void Build_Charmap(Matrix m){
                 //printf("caso 1:carattere:%c\n",m.matrix[i][j]);
                 /*AGGIORNO IL CARATTERE*/
                 m.map[k].carattere = m.matrix[i][j];
-                /*INSERISCO LA POSIZIONE IN RIGHE E COLONNE IN BASE ALL'OCCORRENZA*/
+                /*INSERISCO LA POSIZIONE IN RIGHE E COLONNE IN BASE ALL'OCCORRENZA, IN QUESTO CASO È 0 PERCHÈ È LA PRIMA CHE INSERISCO*/
                 m.map[k].row[m.map[k].occorrenza] = i;
                 m.map[k].column[m.map[k].occorrenza] = j;
                 /*AGGIUNGO 1 ALL'OCCORRENZA*/
                 m.map[k].occorrenza=1;;
-                //printf("carattere:%c, occorrenza:%d, row:%d, col:%d\n",m.matrix[i][j],m.map[k].occorrenza,m.map[k].row[m.map[k].occorrenza],m.map[k].column[m.map[k].occorrenza]);
-
                 /*RIFERISCO CHE LA POSIZIONE È STATA INSERITA*/
                 inserted = 1;
             }else{
@@ -203,7 +197,6 @@ void Build_Charmap(Matrix m){
                         m.map[k1].row[m.map[k1].occorrenza] = i;
                         m.map[k1].column[m.map[k1].occorrenza] = j;
                         m.map[k1].occorrenza++;
-                        //printf("carattere:%c, occorrenza:%d, row:%d, col:%d\n",m.matrix[i][j],m.map[k1].occorrenza,m.map[k1].row[m.map[k1].occorrenza],m.map[k1].column[m.map[k1].occorrenza]);
                         inserted = 1;
                         break;
                     }
