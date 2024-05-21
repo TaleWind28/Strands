@@ -71,7 +71,9 @@ int main(int argc, char* argv[]){
     
     /*INIZIALIZZO I PARAMETRI PASSATI DA RIGA DI COMANDO, COMPRESI QUELLI OPZIONALI*/
     Init_Params(argc,argv,&parametri_server);
+    //inizializzo la lista di giocatori
     Players = NULL;
+    //inizializzo il dizionario
     Dizionario = create_node();
     //carico il dizionario in memoria
     Load_Dictionary(Dizionario,parametri_server.file_dizionario);
@@ -124,27 +126,25 @@ void Init_Params(int argc, char*argv[],Parametri* params){
     /*INIZIALIZZAZIONE VARIABILI IN BASE ALL'ARGOMENTO DELLA RIGA DI COMANDO*/
     HOST = argv[1];
     PORT = atoi(argv[2]);
-    int retvalue;
-    params->file_dizionario = malloc(2048);
-    params->matrix_file = malloc(2048);
+    /*valori di defualt in caso non venissero passati*/
+    params->file_dizionario = DIZIONARIO;
+    params->matrix_file = NULL;
+    params->durata_partita = 10;
+    params->seed = 0;
     /*SCORRO TUTTI I PARAMETRI OPZIONALI RICEVUTI IN INPUT*/
     while((opt = getopt_long(argc,argv,"",logn_opt,&index))!=-1){
         switch(opt){
             case OPT_MATRICI:
                 params->matrix_file = optarg;
-                //printf("matrice:%s\n",optarg);
                 break;
             case OPT_DURATA:
                 params->durata_partita = atoi(optarg);
-                //printf("durata:%s\n",optarg);
                 break;
             case OPT_SEED:
                 params->seed = atoi(optarg);
-                //printf("seed:%s\n",optarg);
                 break;
             case OPT_DIZ:
                 params->file_dizionario = optarg;
-                //printf("dizionario:%s\n",optarg);
                 break;
             case '?':
                 // getopt_long già stampa un messaggio di errore
@@ -152,15 +152,6 @@ void Init_Params(int argc, char*argv[],Parametri* params){
                 break;
             default: printf("argomento superfluo ignorato\n");
         }
-    }
-    //rivedere
-    if (argc==4){
-        params->matrix_file = NULL;
-        params->durata_partita = 10;
-        params->seed = 1;
-        char cwd[2048];
-        getcwd(cwd, sizeof(cwd));
-        sprintf(params->file_dizionario,"%s","../Text/Dizionario.txt");
     }
     return;
 }
