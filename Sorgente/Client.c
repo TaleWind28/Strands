@@ -87,7 +87,7 @@ int take_action(char* input, int comm_fd){
         case 'm':
             Send_Message(comm_fd,"matrice",MSG_MATRICE);
             char* matrice = Receive_Message(comm_fd,&type);
-            //writef(retvalue,matrice);
+            if (type != MSG_MATRICE){writef(retvalue,matrice);break;}
             matrice_player = Create_Matrix(4,4);
             Fill_Matrix(matrice_player,matrice);
             Print_Matrix(matrice_player,4,4);

@@ -23,8 +23,8 @@
 #define MAX_NUM_CLIENTS 32
 #define NUM_ROWS 4
 #define NUM_COLUMNS 4
-#define DIZIONARIO "../File Testuali/Dizionario.txt"
-#define MATRICI "../File Testuali/Matrici.txt"
+#define DIZIONARIO "../Text/Dizionario.txt"
+#define MATRICI "../Text/Matrici.txt"
 
 typedef struct {
     char* matrix_file;
@@ -32,12 +32,6 @@ typedef struct {
     long seed;
     char* file_dizionario;
 }Parametri;
-
-// typedef struct Player{
-//     char* username;
-//     pthread_t gestore;
-//     int currently_playing;
-// }Player;
 
 enum {
     OPT_MATRICI = 1,
@@ -52,7 +46,7 @@ void* Gestione_Server(void* args);
 
 /*GENERAL FUNCTIONS*/
 void Init_Params(int argc, char*argv[],Parametri* params);
-void Choose_Action(int client_fd,char type,char* input,Word_List* already_guessed);
+void Choose_Action(int client_fd,char type,char* input,Word_List* already_guessed,int points);
 int Generate_Round();
 void Load_Dictionary(Trie* Dictionary, char* path_to_dict);
 
@@ -130,7 +124,9 @@ void Init_Params(int argc, char*argv[],Parametri* params){
     /*INIZIALIZZAZIONE VARIABILI IN BASE ALL'ARGOMENTO DELLA RIGA DI COMANDO*/
     HOST = argv[1];
     PORT = atoi(argv[2]);
-
+    int retvalue;
+    params->file_dizionario = malloc(2048);
+    params->matrix_file = malloc(2048);
     /*SCORRO TUTTI I PARAMETRI OPZIONALI RICEVUTI IN INPUT*/
     while((opt = getopt_long(argc,argv,"",logn_opt,&index))!=-1){
         switch(opt){
@@ -157,21 +153,29 @@ void Init_Params(int argc, char*argv[],Parametri* params){
             default: printf("argomento superfluo ignorato\n");
         }
     }
+    //rivedere
     if (argc==4){
         params->matrix_file = NULL;
         params->durata_partita = 10;
         params->seed = 1;
-        params->file_dizionario = DIZIONARIO;
+        char cwd[2048];
+        getcwd(cwd, sizeof(cwd));
+        sprintf(params->file_dizionario,"%s","../Text/Dizionario.txt");
     }
     return;
 }
 
 int Generate_Round(int* offset){
     //controllo se l'utente mi ha passato il file contenente le matrici
-    char random_string[matrice_di_gioco.size];
-    if(parametri_server.matrix_file!= NULL){
-        Load_Matrix(matrice_di_gioco,parametri_server.matrix_file,'Q',offset);
+    char random_string[matrice_di_gioco.size+1];
+    if(parametri_server.matrix_file != NULL){
+        Load_Matrix(matrice_di_gioco,parametri_server.matrix_file,'U',offset);
     }else{
+        srand(parametri_server.seed);
+        for (int i =0;i<16;i++){//modulo 26 perchè è 90-65
+            random_string[i] = (char)((rand()%26)+65);
+        }
+        random_string[matrice_di_gioco.size+1] ='\0'; 
         Fill_Matrix(matrice_di_gioco,random_string);
     }
     Print_Matrix(matrice_di_gioco,'Q','U');
@@ -179,6 +183,7 @@ int Generate_Round(int* offset){
     int retvalue;
     writef(retvalue,"\n");
     //se non ho il file genero casualmente
+    
     //altrimenti leggo dal file in sequenza
     //carico la matrice
     //sleep(10);
@@ -213,7 +218,7 @@ void Load_Dictionary(Trie* Dictionary, char* path_to_dict){
 /*THREAD CHE GESTISCE UN CLIENT*/
 void* Thread_Handler(void* args){
     /*DICHIARAZIONE VARIABILI*/
-    int retvalue;char type = '0';char* input;char* username;
+    int retvalue,points = 0;char type = '0';char* input;char* username;
     /*RECUPERO IL VALORE PASSATO AL THREAD NELLA PTHREAD CREATE*/
     int client_fd = *(int*) args;
     Word_List parole_indovinate = NULL;
@@ -221,9 +226,10 @@ void* Thread_Handler(void* args){
     username = Receive_Message(client_fd,&type);
     //controllo che l'username sia valido
     int exhists = WL_Find_Word(Players,username);
-    while((type != MSG_REGISTRA_UTENTE && type != MSG_CHIUSURA_CONNESSIONE) || exhists == 0){
+    while((type != MSG_REGISTRA_UTENTE && type != MSG_CHIUSURA_CONNESSIONE) || exhists == 0 || strlen(username)>10){
         free(username);
-        if (exhists == 0)Send_Message(client_fd,"Username già presente",MSG_ERR);
+        if(strlen(username)>10)Send_Message(client_fd,"Username troppo lungo\n",MSG_ERR);
+        if (exhists == 0)Send_Message(client_fd,"Username già presente\n",MSG_ERR);
         else Send_Message(client_fd,"Inserisci il comando registra utente\n",MSG_ERR);
         username = Receive_Message(client_fd,&type);
         exhists = WL_Find_Word(Players,username);
@@ -240,26 +246,23 @@ void* Thread_Handler(void* args){
     Print_WList(Players);
     //rilascio la mutex
     pthread_mutex_unlock(&player_mutex);
-   
 
     while(type != MSG_CHIUSURA_CONNESSIONE){
         //prendo l'input dell'utente
         input = Receive_Message(client_fd,&type);
         //Gioco con l'utente
-        Choose_Action(client_fd,type,input,&parole_indovinate);
+        Choose_Action(client_fd,type,input,&parole_indovinate,points);
         //libero l'input per il prossimo ciclo
         free(input);
     }
-    
+    //aspetto la mutex per eitare race condition
     pthread_mutex_lock(&player_mutex);
     //writef(retvalue,username);
-    //inserisco player
-    char mess[buff_size];
-    sprintf(mess,"splice:%d\n",WL_Splice(&Players,username));
-    writef(retvalue,mess);
+    //rimuovo il player
+    WL_Splice(&Players,username);
     //stampa per debug
-    
-    //rilascio la mutex
+    Print_WList(Players);
+    //rilascio la mutex per evitare il deadlock
     pthread_mutex_unlock(&player_mutex); 
 
     //stampa di debug
@@ -270,7 +273,7 @@ void* Thread_Handler(void* args){
     return NULL;
 }
 
-void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed){
+void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed,int points){
     char* matrix;
     switch(type){
         case MSG_MATRICE:
@@ -283,15 +286,16 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
 
         case MSG_PAROLA:
             //controllo se la parola è componibile nella matrice
-            if (Validate(matrice_di_gioco,input)!=0){Send_Message(comm_fd,"Parola Illegale\n",MSG_ERR);return;}
+            if (Validate(matrice_di_gioco,input)!=0){Send_Message(comm_fd,"Parola Illegale su questa matrice\n",MSG_ERR);return;}
             //controllo parole già indovinate/*questo costa meno che cercare nel dizionario,però vva fatto in parallelo col pignoler*/
             if(WL_Find_Word(*already_guessed,input)==0){Send_Message(comm_fd,"Parola già inserita\n",MSG_ERR);return;}
             //controllo lessicale/*da affidare ad un thread*/
-            if(search_Trie(input,Dizionario)==-1){Send_Message(comm_fd,"la parola non esiste in italiano\n",MSG_ERR);return;}
+            //if(search_Trie(input,Dizionario)==-1){Send_Message(comm_fd,"la parola non esiste in italiano\n",MSG_ERR);return;}
             //inserisco la parola indovinata nella lista
             WL_Push(already_guessed,input);
             //comunico al client che la parola era corretta insieme al punteggio
             char message[buff_size];
+            points+= strlen(input);
             sprintf(message,"Complimenti la parola che hai inserito vale %ld punti",strlen(input));
             Send_Message(comm_fd,message,MSG_PUNTI_PAROLA);
             return;

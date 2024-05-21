@@ -66,7 +66,6 @@ int WL_Find_Word(Word_List wl,char* word){
 }
 
 int WL_Splice(Word_List* wl,char* word){
-    int retvalue;
     if (wl == NULL )return -1;
     Word_Node* prev = NULL;
     Word_Node* current = *(wl);
