@@ -51,6 +51,7 @@ int main(int argc, char* argv[]){
     //char type = '0';
     char input_buffer[buff_size];
     ssize_t n_read;
+    matrice_player = Create_Matrix(4,4);
     while(1){
         SYSC(n_read,read(STDIN_FILENO,input_buffer,buff_size),"nella lettura dell'input utente");
         char* input = (char*)malloc(n_read+1);
@@ -64,52 +65,84 @@ int main(int argc, char* argv[]){
 }
 
 int take_action(char* input, int comm_fd){
+    //dichiarazione ed inizializzazione variabili
     int retvalue;
-    char type = MSG_ERR;
+    char type = MSG_ERR,*answer,*matrice;
     char* token = strtok(input, " ");
-    char* answer;
+
     switch(input[0]){
         case 'a':
             writef(retvalue,HELP_MESSAGE);
             break;
         case 'r': 
-            
             token = strtok(NULL,"\n");
             if (token == NULL || token[0] == '\n'){
                 writef(retvalue,"nome utente non valido\n");
                 break;
             }
+            //invio al server il messaggio con le credenziali per la registrazione
             Send_Message(comm_fd,token,MSG_REGISTRA_UTENTE);
+            //aspetto la risposta del server
             answer = Receive_Message(comm_fd,&type);
+            //stampo all'utente la risposta
             writef(retvalue,answer);
+            //pulisco la risposta
             free(answer);
+            //controllo se la registrazione è andata a buon fine
+            if (type == MSG_OK){
+                //aspetto la matrice dal server
+                matrice = Receive_Message(comm_fd,&type);
+                //riempio la matrice
+                Fill_Matrix(matrice_player,matrice);
+                //stampo la matrice al client
+                writef(retvalue,"Questa è la matrice su cui giocare");
+                Print_Matrix(matrice_player,'Q','U');
+                //pulisco la stringa dove ho ricevuto la matrice
+                free(matrice);
+            }
             break;
         case 'm':
+            //invio al server la richiesta della matrice
             Send_Message(comm_fd,"matrice",MSG_MATRICE);
-            char* matrice = Receive_Message(comm_fd,&type);
-            if (type != MSG_MATRICE){writef(retvalue,matrice);break;}
-            matrice_player = Create_Matrix(4,4);
+            //aspetto la risposta del server
+            matrice = Receive_Message(comm_fd,&type);
+            //controllo di aver ricevuto la matrice
+            if (type != MSG_MATRICE){writef(retvalue,matrice);free(matrice);break;}
+            //in caso affermativo la riempio
             Fill_Matrix(matrice_player,matrice);
-            Print_Matrix(matrice_player,4,4);
+            //e la stampo all'utente
+            Print_Matrix(matrice_player,'Q','U');
+            //pulisco la stringa dove ho ricevuto la matrice
             free(matrice);
             break;
         case 'p':
+            //tokenizzo la stringa per ottenere la parla inserita dall'utente
             token = strtok(NULL,"\n");
+            //controllo che il token contenga qualcosa 
             if (token == NULL || token[0] == '\n'){
+                //se il token è vuoto la parola è automaticamente sbagliata, quindi la considero come parola lunga 3 minuscola con il \n
                 Send_Message(comm_fd,"lol\n",MSG_PAROLA);
             }else{
+                //rendo maiuscola la stringa
                 Caps_Lock(token);
+                //invio al server la parola
                 Send_Message(comm_fd,token,MSG_PAROLA);
             }
+            //aspetto la risposta dal server
             answer = Receive_Message(comm_fd,&type);
+            //stampo all'utente la risposta
             writef(retvalue,answer);
+            //pulisco la variabile dove ho ricevuto la risposta dal server
             free(answer);
             break;
         case 'f':
+            //comunico al server che l'utente si sta disconnettendo
             Send_Message(comm_fd,"fine",MSG_CHIUSURA_CONNESSIONE);
+            //ritorno -1 per segnalare che devo terminare il client
             return -1;
             break;
         default:
+            //stampa di default
             writef(retvalue,"comando non disponibile, digitare aiuto per una lista dettagliata\n");
             break;
     }   

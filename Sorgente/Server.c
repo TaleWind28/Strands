@@ -99,7 +99,7 @@ int main(int argc, char* argv[]){
     while(ctr_value !=-1){
         /*BISOGNA SCRIVERE GENERATE ROUND IN MODO CHE QUANDO ARRIVA SIGINT SI GESTISCA la terminazione E SI CHIUDA*/
         ctr_value = Generate_Round(&offset);
-        sleep(10);
+        sleep(60);
     }
 
     /*ASPETTO LA TERMINAZIONE DEL THREAD*/
@@ -163,24 +163,24 @@ int Generate_Round(int* offset){
     //controllo se l'utente mi ha passato il file contenente le matrici
     char random_string[matrice_di_gioco.size+1];
     if(parametri_server.matrix_file != NULL){
+        //leggo dal file in sequenza memorizzando l'offset,e carico la stringa nella matrice
         Load_Matrix(matrice_di_gioco,parametri_server.matrix_file,'U',offset);
     }else{
+        //se non ho il file genero casualmente
         srand(parametri_server.seed);
-        for (int i =0;i<16;i++){//modulo 26 perchè è 90-65
+        for (int i =0;i<16;i++){
+            //genero un carattere random,modulo 26 perchè è 90-65 
             random_string[i] = (char)((rand()%26)+65);
         }
+        //termino la stringa
         random_string[matrice_di_gioco.size+1] ='\0'; 
+        //carico la stringa nella matrice
         Fill_Matrix(matrice_di_gioco,random_string);
     }
+    //stampo sul server la matrice/*DEBUG*/
     Print_Matrix(matrice_di_gioco,'Q','U');
+    //costruisco la mappatura dei caratteri presenti nella matrice
     Build_Charmap(matrice_di_gioco);
-    int retvalue;
-    writef(retvalue,"\n");
-    //se non ho il file genero casualmente
-    
-    //altrimenti leggo dal file in sequenza
-    //carico la matrice
-    //sleep(10);
     return 0;
 }
 
@@ -219,17 +219,19 @@ void* Thread_Handler(void* args){
     //accetto solo la registrazione dell'utente
     username = Receive_Message(client_fd,&type);
     //controllo che l'username sia valido
-    int exhists = WL_Find_Word(Players,username);
-    while((type != MSG_REGISTRA_UTENTE && type != MSG_CHIUSURA_CONNESSIONE) || exhists == 0 || strlen(username)>10){
+    int exists = WL_Find_Word(Players,username);
+    while((type != MSG_REGISTRA_UTENTE && type != MSG_CHIUSURA_CONNESSIONE) || exists == 0 || strlen(username)>10){
         free(username);
         if(strlen(username)>10)Send_Message(client_fd,"Username troppo lungo\n",MSG_ERR);
-        if (exhists == 0)Send_Message(client_fd,"Username già presente\n",MSG_ERR);
+        if (exists == 0)Send_Message(client_fd,"Username già presente\n",MSG_ERR);
         else Send_Message(client_fd,"Inserisci il comando registra utente\n",MSG_ERR);
         username = Receive_Message(client_fd,&type);
-        exhists = WL_Find_Word(Players,username);
+        exists = WL_Find_Word(Players,username);
     }
     if (type == MSG_CHIUSURA_CONNESSIONE){SYSC(retvalue,close(client_fd),"chiusura client-fake");writef(retvalue,"chiusura player\n");return NULL;}
     Send_Message(client_fd,"Registrazione avvenuta con successo\n",MSG_OK);
+    char* matrix_to_send = Stringify_Matrix(matrice_di_gioco);
+    Send_Message(client_fd,matrix_to_send,MSG_MATRICE);
 
     /*REGISTRO L'UTENTE NELLA TABELLA DEI GIOCATORT*/
     //aspetto la mutex per evitare race condition
@@ -282,15 +284,18 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
             //controllo se la parola è componibile nella matrice
             if (Validate(matrice_di_gioco,input)!=0){Send_Message(comm_fd,"Parola Illegale su questa matrice\n",MSG_ERR);return;}
             //controllo parole già indovinate/*questo costa meno che cercare nel dizionario,però vva fatto in parallelo col pignoler*/
-            if(WL_Find_Word(*already_guessed,input)==0){Send_Message(comm_fd,"Parola già inserita\n",MSG_ERR);return;}
-            //controllo lessicale/*da affidare ad un thread*/
+            if(WL_Find_Word(*already_guessed,input)==0){Send_Message(comm_fd,"Parola già inserita, 0 punti\n",MSG_PUNTI_PAROLA);return;}
+            //controllo lessicale
             //if(search_Trie(input,Dizionario)==-1){Send_Message(comm_fd,"la parola non esiste in italiano\n",MSG_ERR);return;}
             //inserisco la parola indovinata nella lista
             WL_Push(already_guessed,input);
             //comunico al client che la parola era corretta insieme al punteggio
             char message[buff_size];
+            //aumento i punti
             points+= strlen(input);
-            sprintf(message,"Complimenti la parola che hai inserito vale %ld punti",strlen(input));
+            //calcolo i punti in base alla lunghezza della stringa
+            sprintf(message,"Complimenti la parola che hai inserito vale %ld punti\n",strlen(input));
+            //invio all'utente il messaggio con i suoi punti
             Send_Message(comm_fd,message,MSG_PUNTI_PAROLA);
             return;
 
@@ -300,7 +305,7 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
             return; 
 
         case MSG_CHIUSURA_CONNESSIONE:
-            //non mando niente al client perchè potrebbe non essere più aperto il file descriptor
+            //non mando niente al client perchè potrebbe non essere più aperto il file descriptor di comunicazione
             return;
     }
 }
