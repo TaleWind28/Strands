@@ -13,6 +13,7 @@
 #include <pthread.h>
 #include <fcntl.h>
 #include <getopt.h>
+#include <time.h>
 
 #include "../Header/macro.h"
 #include "../Header/Matrix.h"
@@ -78,6 +79,8 @@ int main(int argc, char* argv[]){
     //carico il dizionario in memoria
     Load_Dictionary(Dizionario,parametri_server.file_dizionario);
     
+    //Print_Trie(Dizionario,buffer,0);
+
     //debug
     // int l = search_Trie("CIAO",Dizionario);
     // char mess[buff_size];
@@ -94,13 +97,13 @@ int main(int argc, char* argv[]){
     //int i =0;
     /*SFRUTTO IL SERVER COME DEALER*/
     while(ctr_value !=-1){
-        /*BISOGNA SCRIVERE GENERATE ROUND IN MODO CHE QUANDO ARRIVA SIGINT SI GESTISCA al terminazione E SI CHIUDA*/
+        /*BISOGNA SCRIVERE GENERATE ROUND IN MODO CHE QUANDO ARRIVA SIGINT SI GESTISCA la terminazione E SI CHIUDA*/
         ctr_value = Generate_Round(&offset);
-        break;
+        sleep(10);
     }
 
     /*ASPETTO LA TERMINAZIONE DEL THREAD*/
-    SYST(retvalue,pthread_join(jester,NULL),"nell'sattesa del jester");
+    SYST(retvalue,pthread_join(jester,NULL),"nell'attesa del jester");
     return 0;
 }
 //
