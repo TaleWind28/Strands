@@ -99,7 +99,8 @@ int main(int argc, char* argv[]){
     while(ctr_value !=-1){
         /*BISOGNA SCRIVERE GENERATE ROUND IN MODO CHE QUANDO ARRIVA SIGINT SI GESTISCA la terminazione E SI CHIUDA*/
         ctr_value = Generate_Round(&offset);
-        sleep(60);
+        //sleep(60);
+        break;
     }
 
     /*ASPETTO LA TERMINAZIONE DEL THREAD*/
