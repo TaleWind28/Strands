@@ -9,7 +9,7 @@
 #include "../Header/Queue.h"
 
 /*INSERISCO UN ELEMENTO IN TESTA ALLA LISTA*/
-void Push(Word_List* wl,char* word){
+void WL_Push(Word_List* wl,char* word){
     Word_Node* el = (Word_Node*)malloc(sizeof(Word_Node));
     
     el->word = (char*)malloc(strlen(word)+1);
@@ -23,7 +23,7 @@ void Push(Word_List* wl,char* word){
 }
 
 /*ESTRAGGO L'ELEMENTO IN TESTA ALLA LISTA*/
-char* Pop(Word_List* wl){
+char* WL_Pop(Word_List* wl){
     if (wl == NULL) return "lista vuota";
     /*copio la stringa del nodo in testa per restituirla*/ 
     char* tword = (*wl)->word;
@@ -38,105 +38,43 @@ char* Pop(Word_List* wl){
 }
 
 /*CONTO GLI ELEMENTI DELLA LISTA*/
-int Size(Word_List wl){
+int WL_Size(Word_List wl){
     /*caso base*/
     if(wl == NULL )return 0;
     /*chiamata ricorsiva*/
-    return 1+Size(wl->next);
+    return 1+WL_Size(wl->next);
 }
 
 /*COMUNICO LA TESTA DELLA LISTA*/
-char* Peek(Word_List wl){
+char* WL_Peek(Word_List wl){
     if (wl == NULL) return "lista vuota";
     return wl->word;
 }
 
-int Find_Word(Word_List wl,char* word){
+int WL_Find_Word(Word_List wl,char* word){
     //int retvalue;
     /*caso base*/
     if(wl == NULL)return -1;
     /*CONTROLLO DI AVER TROVATO LA PAROLA CHE CERCAVO*/
     if (strcmp(wl->word,word)==0) return 0;
 
-    if (wl->next == NULL)return -1;
-    //writef(retvalue,"lista nulla");
+    //if (wl->next == NULL)return -1;
     
     
     /*chiamata ricorsiva*/
-    return Find_Word(wl->next,word);
+    return WL_Find_Word(wl->next,word);
 }
 
 /*STAMPO LA LISTA*/
 int Print_WList(Word_List wl){
     /*caso base*/
     if (wl == NULL) return 0;
-
+    int retvalue;
+    char print[buff_size];
     /*stampo l'elemento*/
-    printf("%s\n",wl->word);
+    sprintf(print,"%s",wl->word);
+    writef(retvalue,print);
     /*chiamata ricorsiva*/
     return Print_WList(wl->next);
 }
 
-// Funzione hash semplice (djb2)
-unsigned int hash(const char *str,unsigned int Table_size) {
-    unsigned int hash = 5381;
-    int c;
-    while ((c = *str++)) {
-        hash = ((hash << 5) + hash) + c;
-    }
-    hash = hash % Table_size;
-    return hash;
-}
-
-// Funzione per inizializzare la hash table
-void init_table(Hash_Entry *table,unsigned int Table_size) {
-    for (int i = 0; i < Table_size; i++) {
-        table[i].string = NULL;
-        table[i].is_occupied = 0;
-    }
-    return;
-}
-
-// Funzione per inserire una stringa nella hash table usando linear probing
-void insert_string(Hash_Entry *table, char *str,unsigned int Table_size) {
-    unsigned int index = hash(str,Table_size);
-    unsigned int original_index = index;
-    while (table[index].is_occupied) {
-        //int retvalue;
-        
-        index = (index + 1) % Table_size;
-        if (index == original_index) {
-            printf("Hash table is full\n");
-            return;
-        }
-    }
-    table[index].string = str;  // Copia della stringa
-    table[index].points = 0;
-    table[index].is_occupied = 1;
-}
-
-// Funzione per cercare una stringa nella hash table
-int search_string(Hash_Entry *table, const char *str, unsigned int Table_size) {
-    unsigned int index = hash(str,Table_size);
-    unsigned int original_index = index;
-    while (table[index].is_occupied) {
-        if (strcmp(table[index].string, str) == 0) {
-            return index;
-        }
-        index = (index + 1) % Table_size;
-        if (index == original_index) {
-            return -1;
-        }
-    }
-    return -1;
-}
-
-void Delete_Table(Hash_Entry* hash_table,unsigned int Table_size){
-    for (int i = 0; i < Table_size; i++) {
-        if (hash_table[i].string) {
-            free(hash_table[i].string);
-        }
-    }
-    free(hash_table);
-    return;
-}

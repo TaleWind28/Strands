@@ -33,11 +33,11 @@ typedef struct {
     char* file_dizionario;
 }Parametri;
 
-typedef struct Player{
-    char* username;
-    pthread_t gestore;
-    int currently_playing;
-}Player;
+// typedef struct Player{
+//     char* username;
+//     pthread_t gestore;
+//     int currently_playing;
+// }Player;
 
 enum {
     OPT_MATRICI = 1,
@@ -58,10 +58,10 @@ void Load_Dictionary(Trie* Dictionary, char* path_to_dict);
 
 /*GLOBAL VARIABLES*/
 Parametri parametri_server;
-Player giocatori[MAX_NUM_CLIENTS];
-Hash_Entry Tabella_Player[MAX_NUM_CLIENTS];
+Word_List Players;
 Matrix matrice_di_gioco;
 Trie* Dizionario;
+pthread_mutex_t player_mutex;
 
 char* HOST;
 int PORT;
@@ -77,9 +77,7 @@ int main(int argc, char* argv[]){
     
     /*INIZIALIZZO I PARAMETRI PASSATI DA RIGA DI COMANDO, COMPRESI QUELLI OPZIONALI*/
     Init_Params(argc,argv,&parametri_server);
-    /*prova tabella hash*/
-    init_table(Tabella_Player,MAX_NUM_CLIENTS);
-    
+    Players = NULL;
     Dizionario = create_node();
     //carico il dizionario in memoria
     Load_Dictionary(Dizionario,parametri_server.file_dizionario);
@@ -221,7 +219,8 @@ void* Thread_Handler(void* args){
     Word_List parole_indovinate = NULL;
     //accetto solo la registrazione dell'utente
     username = Receive_Message(client_fd,&type);
-    while(type != MSG_REGISTRA_UTENTE && type != MSG_CHIUSURA_CONNESSIONE){
+    while(type != MSG_REGISTRA_UTENTE && type != MSG_CHIUSURA_CONNESSIONE && WL_Find_Word(Players,username)==0){
+        free(username);
         Send_Message(client_fd,"Inserisci il comando registra utente\n",MSG_ERR);
         username = Receive_Message(client_fd,&type);
     }
@@ -229,15 +228,21 @@ void* Thread_Handler(void* args){
     Send_Message(client_fd,"Registrazione avvenuta con successo\n",MSG_OK);
 
     /*REGISTRO L'UTENTE NELLA TABELLA DEI GIOCATORT*/
-    insert_string(Tabella_Player,username,MAX_NUM_CLIENTS);
+    //aspetto la mutex per evitare race condition
+    pthread_mutex_lock(&player_mutex);
+    //inserisco player
+    WL_Push(&Players,username);
+    //rilascio la mutex
+    pthread_mutex_unlock(&player_mutex);
+    //writef(retvalue,"registrato\n");
+    Print_WList(Players);
 
     while(type != MSG_CHIUSURA_CONNESSIONE){
         //prendo l'input dell'utente
         input = Receive_Message(client_fd,&type);
-        // writef(retvalue,input);
-        // writef(retvalue,"\n");
         //Gioco con l'utente
         Choose_Action(client_fd,type,input,&parole_indovinate);
+        
         //libero l'input per il prossimo ciclo
         free(input);
     }
@@ -251,37 +256,39 @@ void* Thread_Handler(void* args){
 }
 
 void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed){
-    if (type == MSG_MATRICE){
-        //trasforma la matrice in una stringa
-        char* matrix = Stringify_Matrix(matrice_di_gioco);
-        //invio la matrice sotto forma di stringa al client
-        Send_Message(comm_fd,matrix,MSG_MATRICE);
-        free(matrix);
-        return;
-    }
-    if (type == MSG_PAROLA){
-        //controllo se la parola è componibile nella matrice
-        //int retvalue;
-        //writef(retvalue,input);
-        if (Validate(matrice_di_gioco,input)!=0){Send_Message(comm_fd,"Parola Illegale\n",MSG_ERR);return;}
-        //controllo parole già indovinate/*questo costa meno che cercare nel dizionario,però vva fatto in parallelo col pignoler*/
-        if(Find_Word(*already_guessed,input)==0){Send_Message(comm_fd,"Parola già inserita\n",MSG_ERR);return;}
-        //controllo lessicale/*da affidare ad un thread*/
-        if(search_Trie(input,Dizionario)==-1){Send_Message(comm_fd,"la parola non esiste in italiano\n",MSG_ERR);return;}
-        //inserisco la parola indovinata nella lista
-        Push(already_guessed,input);
-        //2 possibili send_message 1 con MSG_ERR e 1 con MSG_PUNTI_PAROLA
-        Send_Message(comm_fd,"Complimenti hai inserito una parola valida\n",MSG_PUNTI_PAROLA);return;
-    }
+    char* matrix;
+    switch(type){
+        case MSG_MATRICE:
+            //trasforma la matrice in una stringa
+            matrix = Stringify_Matrix(matrice_di_gioco);
+            //invio la matrice sotto forma di stringa al client
+            Send_Message(comm_fd,matrix,MSG_MATRICE);
+            free(matrix);
+            return;
 
-    if (type == MSG_REGISTRA_UTENTE){
-        //dico all'utente che non serve registrarsi ulteriormente
-        Send_Message(comm_fd,"Utente già Registrato\n",MSG_ERR);
-        return; 
-    }
-     if (type == MSG_CHIUSURA_CONNESSIONE){
-        //mando niente al client perchè potrebbe non essere più aperto il file descriptor
-        return;
+        case MSG_PAROLA:
+            //controllo se la parola è componibile nella matrice
+            if (Validate(matrice_di_gioco,input)!=0){Send_Message(comm_fd,"Parola Illegale\n",MSG_ERR);return;}
+            //controllo parole già indovinate/*questo costa meno che cercare nel dizionario,però vva fatto in parallelo col pignoler*/
+            if(WL_Find_Word(*already_guessed,input)==0){Send_Message(comm_fd,"Parola già inserita\n",MSG_ERR);return;}
+            //controllo lessicale/*da affidare ad un thread*/
+            if(search_Trie(input,Dizionario)==-1){Send_Message(comm_fd,"la parola non esiste in italiano\n",MSG_ERR);return;}
+            //inserisco la parola indovinata nella lista
+            WL_Push(already_guessed,input);
+            //comunico al client che la parola era corretta insieme al punteggio
+            char message[buff_size];
+            sprintf(message,"Complimenti la parola che hai inserito vale %ld punti",strlen(input));
+            Send_Message(comm_fd,message,MSG_PUNTI_PAROLA);
+            return;
+
+        case MSG_REGISTRA_UTENTE:
+            //dico all'utente che non serve registrarsi ulteriormente
+            Send_Message(comm_fd,"Utente già Registrato\n",MSG_OK);
+            return; 
+
+        case MSG_CHIUSURA_CONNESSIONE:
+            //non mando niente al client perchè potrebbe non essere più aperto il file descriptor
+            return;
     }
 }
 
@@ -313,7 +320,6 @@ void* Gestione_Server(void* args){
         /*accettazione delle richieste*/
         SYSC(client_fd[i],accept(server_fd,(struct sockaddr*)&client_address,&client_length),"nella accept");
         /*DISPATCHING DI UN THREAD PER GESTIRE LA TRANSAZIONE*/
-        giocatori[i].gestore = client_thread[i];
         SYST(retvalue,pthread_create(&client_thread[i],NULL,Thread_Handler,&client_fd[i]),"dispatching dei thread");
     }
     /*ATTESA DELLA FINE DEI DISPATCHER*/

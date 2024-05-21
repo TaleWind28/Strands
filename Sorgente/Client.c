@@ -84,7 +84,6 @@ int take_action(char* input, int comm_fd){
                 char* answer = Receive_Message(comm_fd,&type);
                 writef(retvalue,answer);
                 free(answer);
-                if (type == MSG_OK)break; 
             }
             break;
         case 'm':
