@@ -169,6 +169,7 @@ int take_action(char* input, int comm_fd){
         case 'f':
             //comunico al server che l'utente si sta disconnettendo
             Send_Message(comm_fd,"fine",MSG_CHIUSURA_CONNESSIONE);
+            Receive_Message(comm_fd,&type);
             //ritorno -1 per segnalare che devo terminare il client
             return -1;
             break;
