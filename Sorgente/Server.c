@@ -154,7 +154,7 @@ void Init_Params(int argc, char*argv[],Parametri* params){
     params->file_dizionario = DIZIONARIO;
     params->matrix_file = NULL;
     params->durata_partita = 10;
-    params->seed = 0;
+    params->seed = -1;
     /*SCORRO TUTTI I PARAMETRI OPZIONALI RICEVUTI IN INPUT*/
     while((opt = getopt_long(argc,argv,"",logn_opt,&index))!=-1){
         switch(opt){
@@ -176,6 +176,10 @@ void Init_Params(int argc, char*argv[],Parametri* params){
                 break;
             default: printf("argomento superfluo ignorato\n");
         }
+    }
+    if (parametri_server.seed !=-1 && parametri_server.matrix_file != NULL){
+        perror("NON SI PUò AVVIARE IL SERVER CON SIA IL SEED CHE IL FILE MATRICI\n");
+        exit(EXIT_FAILURE);
     }
     return;
 }
