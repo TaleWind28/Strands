@@ -1,3 +1,5 @@
+#define _XOPEN_SOURCE 700
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,6 +16,7 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <time.h>
+#include <signal.h>
 
 #include "../Header/macro.h"
 #include "../Header/Matrix.h"
@@ -61,15 +64,32 @@ pthread_mutex_t player_mutex;
 char* HOST;
 int PORT;
 int game_on = 0; 
-
+int server_fd;
 //
 /*MAIN DEL PROGRAMMA*/
+void gestore_segnale(int signum) {
+  int retvalue;
+  if (signum == 2){
+    
+    SYSC(retvalue,close(server_fd),"chiusura dovuta a SIGINT");
+  }
+  write(1,"\nterminazione dovuta a SIGINT\n",31);
+  exit(EXIT_SUCCESS);
+}
 
 int main(int argc, char* argv[]){
     /*DICIARAZIONE VARIABILI*/
     int retvalue;
     pthread_t jester;
-    
+    struct sigaction azione_segnale;
+    sigset_t maschera_segnale;
+    sigemptyset(&maschera_segnale);
+    SYSC(retvalue,sigaddset(&maschera_segnale,SIGINT),"aggiunta SIGINT alla maschera");
+    /*IMPOSTO LA SIGACTION*/
+    azione_segnale.sa_handler = gestore_segnale;
+    azione_segnale.sa_mask = maschera_segnale;
+    /*IMPOSTO IL GESTORE*/
+    sigaction(SIGINT,&azione_segnale,NULL);
     /*INIZIALIZZO I PARAMETRI PASSATI DA RIGA DI COMANDO, COMPRESI QUELLI OPZIONALI*/
     Init_Params(argc,argv,&parametri_server);
     //inizializzo la lista di giocatori
@@ -302,7 +322,7 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
             if(WL_Find_Word(*already_guessed,input)==0){Send_Message(comm_fd,"Parola già inserita, 0 punti\n",MSG_PUNTI_PAROLA);return;}
             
             //controllo lessicale
-            //if(search_Trie(input,Dizionario)==-1){Send_Message(comm_fd,"la parola non esiste in italiano\n",MSG_ERR);return;}
+            if(search_Trie(input,Dizionario)==-1){Send_Message(comm_fd,"la parola non esiste in italiano\n",MSG_ERR);return;}
             
             //inserisco la parola indovinata nella lista
             WL_Push(already_guessed,input);
@@ -341,7 +361,7 @@ void Replace_Special(char* string,char special){
 /*THREAD CHE GESTISCE LA CREAZIONE DEL SERVER E L'ACCETTAZIONE DEI GIOCATORI*/
 void* Gestione_Server(void* args){
     /*dichiarazione variabili*/
-    int retvalue, server_fd , client_fd[MAX_NUM_CLIENTS];
+    int retvalue, client_fd[MAX_NUM_CLIENTS];
     pthread_t client_thread[MAX_NUM_CLIENTS];
     //pthread_t acceptance_thread;
     struct sockaddr_in server_address, client_address;
