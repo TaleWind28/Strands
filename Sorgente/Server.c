@@ -50,7 +50,7 @@ void Init_Params(int argc, char*argv[],Parametri* params);
 void Choose_Action(int client_fd,char type,char* input,Word_List* already_guessed,int points);
 int Generate_Round();
 void Load_Dictionary(Trie* Dictionary, char* path_to_dict);
-
+void Replace_Special(char* string,char special);
 /*GLOBAL VARIABLES*/
 Parametri parametri_server;
 Word_List Players;
@@ -165,21 +165,27 @@ int Generate_Round(int* offset){
     char random_string[matrice_di_gioco.size+1];
     if(parametri_server.matrix_file != NULL){
         //leggo dal file in sequenza memorizzando l'offset,e carico la stringa nella matrice
-        Load_Matrix(matrice_di_gioco,parametri_server.matrix_file,'U',offset);
+        Load_Matrix(matrice_di_gioco,parametri_server.matrix_file,'Q',offset);
     }else{
         //se non ho il file genero casualmente
         srand(parametri_server.seed);
         for (int i =0;i<16;i++){
             //genero un carattere random,modulo 26 perchè è 90-65 
             random_string[i] = (char)((rand()%26)+65);
+            //controllo se la stringa ha una Q
+            if (random_string[i] =='Q'){
+                //inserisco un carattere speciale
+                random_string[i] = '?';
+            }
         }
         //termino la stringa
-        random_string[matrice_di_gioco.size+1] ='\0'; 
+        random_string[matrice_di_gioco.size+1] ='\0';
+
         //carico la stringa nella matrice
         Fill_Matrix(matrice_di_gioco,random_string);
     }
     //stampo sul server la matrice/*DEBUG*/
-    Print_Matrix(matrice_di_gioco,'Q','U');
+    Print_Matrix(matrice_di_gioco,'?','Q');
     //costruisco la mappatura dei caratteri presenti nella matrice
     Build_Charmap(matrice_di_gioco);
     return 0;
@@ -272,6 +278,8 @@ void* Thread_Handler(void* args){
 
 void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed,int points){
     char* matrix;
+    char*input_cpy = malloc(strlen(input));
+    
     switch(type){
         case MSG_MATRICE:
             //trasforma la matrice in una stringa
@@ -282,12 +290,20 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
             return;
 
         case MSG_PAROLA:
+            //salvo l'input in una copia per non distruggere la stringa originale
+            strcpy(input_cpy,input);
+            //rimuovo il carattere speciale dalla stringa
+            Adjust_String(input_cpy,'U');
+            Replace_Special(input_cpy,'Q');
             //controllo se la parola è componibile nella matrice
-            if (Validate(matrice_di_gioco,input)!=0){Send_Message(comm_fd,"Parola Illegale su questa matrice\n",MSG_ERR);return;}
+            if (Validate(matrice_di_gioco,input_cpy)!=0){Send_Message(comm_fd,"Parola Illegale su questa matrice\n",MSG_ERR);return;}
+            
             //controllo parole già indovinate/*questo costa meno che cercare nel dizionario,però vva fatto in parallelo col pignoler*/
             if(WL_Find_Word(*already_guessed,input)==0){Send_Message(comm_fd,"Parola già inserita, 0 punti\n",MSG_PUNTI_PAROLA);return;}
+            
             //controllo lessicale
             //if(search_Trie(input,Dizionario)==-1){Send_Message(comm_fd,"la parola non esiste in italiano\n",MSG_ERR);return;}
+            
             //inserisco la parola indovinata nella lista
             WL_Push(already_guessed,input);
             //comunico al client che la parola era corretta insieme al punteggio
@@ -298,6 +314,7 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
             sprintf(message,"Complimenti la parola che hai inserito vale %ld punti\n",strlen(input));
             //invio all'utente il messaggio con i suoi punti
             Send_Message(comm_fd,message,MSG_PUNTI_PAROLA);
+            free(input_cpy);
             return;
 
         case MSG_REGISTRA_UTENTE:
@@ -311,6 +328,15 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
     }
 }
 
+void Replace_Special(char* string,char special){
+    int len = strlen(string);
+    for(int i =0;i<len;i++){
+        if (string[i] == special){
+            string[i] = '?';
+        }
+    }
+    return;
+}
 /*THREAD CHE GESTISCE LA CREAZIONE DEL SERVER E L'ACCETTAZIONE DEI GIOCATORI*/
 void* Gestione_Server(void* args){
     /*dichiarazione variabili*/

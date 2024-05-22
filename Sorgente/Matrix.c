@@ -115,7 +115,7 @@ void Load_Matrix(Matrix m, char* path_to_file,char exception,int* offset){
 
  char* File_Read(int fd, char exception, int* offset){
     //18 è la lunghezza massima perchè 16 parole +\n +\0
-    char* buffer= (char*)malloc(19);
+    char* buffer= (char*)malloc(17);
     int retvalue;char carattere;
     /*mi posizioni nell'offset fornito*/
     SYSC(retvalue,lseek(fd,*offset,SEEK_SET),"nel setting dell'offset");
@@ -125,16 +125,19 @@ void Load_Matrix(Matrix m, char* path_to_file,char exception,int* offset){
         SYSC(retvalue,read(fd,&carattere,sizeof(char)),"nella lettura del carattere");
         /*se trovo il \n esco*/
         if (carattere == '\n') break;
+        Caps_Lock(&carattere);
         /*se trovo l'eccezione la skippo*/
-        if (carattere!=exception){
-            buffer[i] = carattere;
-            /*aggiorno l'offset*/
-            SYSC(*offset,lseek(fd,0,SEEK_CUR),"nella memorizzazione dell'offset");
-        }else i--;
+        
+        if (carattere==exception){
+            buffer[i] = '?';
+            SYSC(retvalue,read(fd,&carattere,sizeof(char)),"nella lettura dopo l'eccezione");
+            continue;
+        }
+        buffer[i] = carattere;
+        printf("buffer:%s\n",buffer);
     }
     SYSC(*offset,lseek(fd,0,SEEK_CUR),"nella memorizzazione dell'offset");
-    if (strlen(buffer) != 19)return buffer;
-    buffer = strtok(buffer,"\n");
+    //buffer = strtok(buffer,"\n");
     /*ritorno il buffer*/
     return buffer;
 }
@@ -399,7 +402,7 @@ void Print_Matrix(Matrix m,char special, char exception){
         for(int j = 0;j<m.columns;j++){
             /*SCRIVO IN UN BUFFER L'ELEMENTO DELLA MATRICE*/
             if (m.matrix[i][j] == special){
-                sprintf(message,"%c%c\t", m.matrix[i][j],exception);
+                sprintf(message,"%c%c\t",exception,'U');
             }
             else{
                 sprintf(message,"%c\t", m.matrix[i][j]);

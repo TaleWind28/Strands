@@ -47,11 +47,11 @@ HOST = 127.0.0.1
 #Test
 SERVER_RUN = ./$(SERVER) $(HOST) $(PORT) --matrici ../Text/Matrici.txt --durata 2 --seed 100 --diz ../Text/Dizionario.txt
 DEBUG-RUN = ./$(SERVER) $(HOST) $(PORT)  
-SERVER_RUN2 = ./$(SERVER) $(HOST) $(PORT2)  --durata 2 --seed 20 
+SERVER_RUN2 = ./$(SERVER) $(HOST) $(PORT2)  --durata 2 --seed 500
 CLIENT_RUN = ./$(CLIENT) $(HOST) $(PORT)
 CLIENT_RUN2 = ./$(CLIENT) $(HOST) $(PORT2)
-
-
+#prova internet
+#./Server 0.0.0.0 2000 --matrici ../Text/Matrici.txt --diz ../Text/Dizionario.txt
 #Target
 all: $(SERVER) $(CLIENT) obj_clean
 

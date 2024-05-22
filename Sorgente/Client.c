@@ -95,8 +95,8 @@ int take_action(char* input, int comm_fd){
                 //riempio la matrice
                 Fill_Matrix(matrice_player,matrice);
                 //stampo la matrice al client
-                writef(retvalue,"Questa è la matrice su cui giocare");
-                Print_Matrix(matrice_player,'Q','U');
+                writef(retvalue,"Questa è la matrice su cui giocare\n");
+                Print_Matrix(matrice_player,'?','Q');
                 //pulisco la stringa dove ho ricevuto la matrice
                 free(matrice);
             }
@@ -109,9 +109,12 @@ int take_action(char* input, int comm_fd){
             //controllo di aver ricevuto la matrice
             if (type != MSG_MATRICE){writef(retvalue,matrice);free(matrice);break;}
             //in caso affermativo la riempio
+            char mess[buff_size];
+            sprintf(mess,"matrice:%s\n",matrice);
+            writef(retvalue,mess);
             Fill_Matrix(matrice_player,matrice);
             //e la stampo all'utente
-            Print_Matrix(matrice_player,'Q','U');
+            Print_Matrix(matrice_player,'?','Q');
             //pulisco la stringa dove ho ricevuto la matrice
             free(matrice);
             break;
