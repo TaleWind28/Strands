@@ -1,4 +1,4 @@
-//questa serve per non avere gli error squiggles
+//questa serve per non avere gli error squiggles sulla sigaction
 #define _XOPEN_SOURCE 700
 
 #include <stdio.h>
