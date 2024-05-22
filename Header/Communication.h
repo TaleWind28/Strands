@@ -12,11 +12,7 @@
 
 /*RENDO MAIUSCOLA UNA STRINGA*/
 void Caps_Lock(char* string);
-
-// /*IDENTIFICO IL TIPO DI UN MESSAGGIO*/
-// void Recognize_Message(int Communication_fd, char* data_to_send,char Message_Type);
+//invio un messaggio
 void Send_Message(int comm_fd,char* payload,char type);
-
+//ricevo un messaggio
 char* Receive_Message(int comm_fd,char* type);
-
-void Recognize_Message(char type);

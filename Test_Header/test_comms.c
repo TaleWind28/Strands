@@ -58,24 +58,11 @@ void server(){
     
     SYSC(client_fd,accept(server_fd,(struct sockaddr*)&client_address,&client_length),"nella accept");
     char msg_type = 'a';    
-    
-    ssize_t n_read;
-    char* buffer = (char*)malloc(buff_size*sizeof(char));
-    //mess.Data = (char*)malloc(buff_size*sizeof(char));
     for(int i=0;i<2;i++){
-        
-        SYSC(n_read,read(client_fd,buffer,buff_size),"nella read");
-        //writef(retvalue,mex);
-        char tok[n_read];
-        strncpy(tok,buffer,n_read);
-        char* message = (char*)malloc((n_read-5)*sizeof(char));
-        int len = 0;
-        writef(retvalue,"tok:\n");
-        writef(retvalue,tok);
-        writef(retvalue,"\n");
-        Decompose_Message(tok,message,msg_type,len);
-        //realloc(buffer,buff_size*sizeof(char));
-        //writef(retvalue,message);
+        char* input = Receive_Message(client_fd,&msg_type);
+        writef(retvalue,input);
+        input = Receive_Message(client_fd,&msg_type);
+        writef(retvalue,input);
     }
     /*chiusura dei socket*/
     SYSC(retvalue,close(client_fd),"chiusura client-fake");

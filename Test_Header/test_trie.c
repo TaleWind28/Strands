@@ -8,7 +8,6 @@
 #include "../Header/Trie.h"
 
 void Caps_Lock(char* str){
-    int retvalue;
     int i = 0;
     while (str[i] != '\0') {
         if (str[i] >= 'a' && str[i] <= 'z') {
