@@ -1,3 +1,6 @@
+//questa serve per non avere gli error squiggles
+#define _XOPEN_SOURCE 700
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,6 +10,7 @@
 #include <arpa/inet.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <signal.h>
 #include <errno.h>
 #include "../Header/macro.h"
 #include "../Header/Matrix.h"
@@ -18,14 +22,27 @@
 #define HELP_MESSAGE "Per prima cosa se non lo hai già fatto resgistrati mediante il comando registra_utente seguito dal tuo nome, poi potrai usare i seguenti comandi:\np seguito da una parola per indovinare una parola presente nella matrice che vedi a schermo\n matrice per visualizzare a schermo la matrice ed il tempo residuo di gioco\naiuto che ti mostra i comandi a te disponibili\nfine che ti fa uscire dalla partita in corso\n"
 void Play(int client_fd);
 
+int client_fd;
 
 Matrix matrice_player;
-
+void gestione_terminazione_errata(int signum) {
+    char type;int retvalue;
+    //invio un messaggio al server dicendogli che ho avuto un problema
+    Send_Message(client_fd,"Ricevuto_Sigint",MSG_CHIUSURA_CONNESSIONE);
+    //aspetto che mi risponda per evitare di chiiudere troppo presto il file descriptor
+    Receive_Message(client_fd,&type);
+    printf("sigint\n");
+    /*chiudo il socket*/
+    SYSC(retvalue,close(client_fd),"chiusura del cliente");
+    exit(EXIT_SUCCESS);
+}
 int take_action(char* input, int comm_fd);
 
 int main(int argc, char* argv[]){
+    struct sigaction azione_segnale;
+    sigset_t maschera_segnale;
     /*dichiarazione ed inizializzazione variabili*/
-    int retvalue, client_fd;
+    int retvalue;
     struct sockaddr_in server_address;
     socklen_t server_len = sizeof(server_address);
     /*INIZIALIZZAZIONE VARIABILI IN BASE ALL'ARGOMENTO DELLA RIGA DI COMANDO*/
@@ -48,6 +65,17 @@ int main(int argc, char* argv[]){
     /*chiamo la connect*/
     SYSC(retvalue,connect(client_fd,(struct sockaddr*)&server_address,server_len),"nella connect");
     writef(retvalue,"connesso\n");
+     /*IMPOSTO LA MASCHERA*/
+    sigemptyset(&maschera_segnale);
+    SYSC(retvalue,sigaddset(&maschera_segnale,SIGINT),"aggiunta SIGINT alla maschera");
+
+    /*IMPOSTO LA SIGACTION*/
+    azione_segnale.sa_handler = gestione_terminazione_errata;
+    azione_segnale.sa_mask = maschera_segnale;
+  
+    /*IMPOSTO IL GESTORE*/
+    sigaction(SIGINT,&azione_segnale,NULL);
+   
     //char type = '0';
     char input_buffer[buff_size];
     ssize_t n_read;

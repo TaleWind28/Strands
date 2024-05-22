@@ -323,6 +323,7 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
             return; 
 
         case MSG_CHIUSURA_CONNESSIONE:
+            Send_Message(comm_fd,"ok",MSG_OK);
             //non mando niente al client perchè potrebbe non essere più aperto il file descriptor di comunicazione
             return;
     }
