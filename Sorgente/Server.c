@@ -317,7 +317,6 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
             //salvo l'input in una copia per non distruggere la stringa originale
             strcpy(input_cpy,input);
             //rimuovo il carattere speciale dalla stringa
-            Adjust_String(input_cpy,'U');
             Replace_Special(input_cpy,'Q');
             //controllo se la parola è componibile nella matrice
             if (Validate(matrice_di_gioco,input_cpy)!=0){Send_Message(comm_fd,"Parola Illegale su questa matrice\n",MSG_ERR);return;}
@@ -355,13 +354,23 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
 
 void Replace_Special(char* string,char special){
     int len = strlen(string);
+    int j = 0;
     for(int i =0;i<len;i++){
-        if (string[i] == special){
-            string[i] = '?';
+        if (string[i] != special){
+            string[j++] = string[i];
+        }else{
+            string[j++] = '?';
+            printf("carattere:%c\n",string[j]);
+            i++;
         }
     }
+    string[j] = '\0';
+    printf("carattere:%s\n",string);
     return;
 }
+
+
+
 /*THREAD CHE GESTISCE LA CREAZIONE DEL SERVER E L'ACCETTAZIONE DEI GIOCATORI*/
 void* Gestione_Server(void* args){
     /*dichiarazione variabili*/
