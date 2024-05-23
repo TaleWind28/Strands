@@ -70,11 +70,11 @@ int server_fd;
 void gestore_segnale(int signum) {
   int retvalue;
   if (signum == 2){
-    
+    SYSC(retvalue,shutdown(server_fd,SHUT_RDWR),"nello shutdown"); 
     SYSC(retvalue,close(server_fd),"chiusura dovuta a SIGINT");
   }
   write(1,"\nterminazione dovuta a SIGINT\n",31);
-  exit(EXIT_SUCCESS);
+  exit(EXIT_FAILURE);
 }
 
 int main(int argc, char* argv[]){
@@ -313,13 +313,13 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
             //salvo l'input in una copia per non distruggere la stringa originale
             strcpy(input_cpy,input);
             //rimuovo il carattere speciale dalla stringa
-            Adjust_String(input_cpy,'U');
+            //Adjust_String(input_cpy,'U');
             Replace_Special(input_cpy,'Q');
             //controllo se la parola è componibile nella matrice
             if (Validate(matrice_di_gioco,input_cpy)!=0){Send_Message(comm_fd,"Parola Illegale su questa matrice\n",MSG_ERR);return;}
             
             //controllo parole già indovinate/*questo costa meno che cercare nel dizionario,però vva fatto in parallelo col pignoler*/
-            if(WL_Find_Word(*already_guessed,input)==0){Send_Message(comm_fd,"Parola già inserita, 0 punti\n",MSG_PUNTI_PAROLA);return;}
+            //if(WL_Find_Word(*already_guessed,input)==0){Send_Message(comm_fd,"Parola già inserita, 0 punti\n",MSG_PUNTI_PAROLA);return;}
             
             //controllo lessicale
             if(search_Trie(input,Dizionario)==-1){Send_Message(comm_fd,"la parola non esiste in italiano\n",MSG_ERR);return;}
@@ -351,14 +351,20 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
 
 void Replace_Special(char* string,char special){
     int len = strlen(string);
+    int j = 0;
     for(int i =0;i<len;i++){
-        if (string[i] == special){
-            string[i] = '?';
+        if (string[i] != special){
+            string[j++] = string[i];
+        }else{
+            string[j++] = '?';
+            printf("carattere:%c\n",string[j]);
+            i++;
         }
     }
+    string[j] = '\0';
+    printf("carattere:%s\n",string);
     return;
 }
-
 /*THREAD CHE GESTISCE LA CREAZIONE DEL SERVER E L'ACCETTAZIONE DEI GIOCATORI*/
 void* Gestione_Server(void* args){
     /*dichiarazione variabili*/
