@@ -154,7 +154,7 @@ void Init_Params(int argc, char*argv[],Parametri* params){
     params->file_dizionario = DIZIONARIO;
     params->matrix_file = NULL;
     params->durata_partita = 10;
-    params->seed = 0;
+    params->seed = -1;
     /*SCORRO TUTTI I PARAMETRI OPZIONALI RICEVUTI IN INPUT*/
     while((opt = getopt_long(argc,argv,"",logn_opt,&index))!=-1){
         switch(opt){
@@ -176,6 +176,10 @@ void Init_Params(int argc, char*argv[],Parametri* params){
                 break;
             default: printf("argomento superfluo ignorato\n");
         }
+    }
+    if (parametri_server.seed !=-1 && parametri_server.matrix_file != NULL){
+        perror("NON SI PUò AVVIARE IL SERVER CON SIA IL SEED CHE IL FILE MATRICI\n");
+        exit(EXIT_FAILURE);
     }
     return;
 }
@@ -313,7 +317,6 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
             //salvo l'input in una copia per non distruggere la stringa originale
             strcpy(input_cpy,input);
             //rimuovo il carattere speciale dalla stringa
-            Adjust_String(input_cpy,'U');
             Replace_Special(input_cpy,'Q');
             //controllo se la parola è componibile nella matrice
             if (Validate(matrice_di_gioco,input_cpy)!=0){Send_Message(comm_fd,"Parola Illegale su questa matrice\n",MSG_ERR);return;}
@@ -351,13 +354,23 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
 
 void Replace_Special(char* string,char special){
     int len = strlen(string);
+    int j = 0;
     for(int i =0;i<len;i++){
-        if (string[i] == special){
-            string[i] = '?';
+        if (string[i] != special){
+            string[j++] = string[i];
+        }else{
+            string[j++] = '?';
+            printf("carattere:%c\n",string[j]);
+            i++;
         }
     }
+    string[j] = '\0';
+    printf("carattere:%s\n",string);
     return;
 }
+
+
+
 /*THREAD CHE GESTISCE LA CREAZIONE DEL SERVER E L'ACCETTAZIONE DEI GIOCATORI*/
 void* Gestione_Server(void* args){
     /*dichiarazione variabili*/
