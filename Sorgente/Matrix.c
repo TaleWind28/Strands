@@ -116,13 +116,17 @@ void Load_Matrix(Matrix m, char* path_to_file,char exception,int* offset){
  char* File_Read(int fd, char exception, int* offset){
     //18 è la lunghezza massima perchè 16 parole +\n +\0
     char* buffer= (char*)malloc(17);
-    int retvalue;char carattere;
+    int retvalue;char carattere;ssize_t n_read;
     /*mi posizioni nell'offset fornito*/
     SYSC(retvalue,lseek(fd,*offset,SEEK_SET),"nel setting dell'offset");
     /*leggo i caratteri della mia matrice*/
     for(int i =0;i<19;i++){
         /*leggo carattere per carattere*/
-        SYSC(retvalue,read(fd,&carattere,sizeof(char)),"nella lettura del carattere");
+        SYSC(n_read,read(fd,&carattere,sizeof(char)),"nella lettura del carattere");
+        if (n_read == 0){
+            SYSC(*offset,lseek(fd,0,SEEK_SET),"nel resettare l'offset");
+            break;
+        }
         /*se trovo il \n esco*/
         if (carattere == '\n') break;
         Caps_Lock(&carattere);
