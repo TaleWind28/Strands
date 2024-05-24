@@ -53,7 +53,7 @@ void* Gestione_Server(void* args);
 /*GENERAL FUNCTIONS*/
 void Init_Params(int argc, char*argv[],Parametri* params);
 void Choose_Action(int client_fd,char type,char* input,Word_List* already_guessed,int points);
-int Generate_Round();
+void Generate_Round();
 void Load_Dictionary(Trie* Dictionary, char* path_to_dict);
 void Replace_Special(char* string,char special);
 /*GLOBAL VARIABLES*/
@@ -83,7 +83,7 @@ char* tempo(int max_dur){
 void gestore_segnale(int signum) {
   int retvalue;
   if (signum == SIGINT){
-    SYSC(retvalue,shutdown(server_fd,SHUT_RDWR),"nello shutdown"); 
+    //SYSC(retvalue,shutdown(server_fd,SHUT_RDWR),"nello shutdown"); 
     SYSC(retvalue,close(server_fd),"chiusura dovuta a SIGINT");
     write(1,"\nterminazione dovuta a SIGINT\n",31);
     exit(EXIT_SUCCESS);
@@ -109,6 +109,7 @@ void gestore_segnale(int signum) {
             //durata pausa
             alarm(DURATA_PAUSA);
             game_on = 0;
+            //dico a tutti i thread di mandare i risultati allo scorer
             printf("game off\n");
       }
     } 
@@ -224,7 +225,7 @@ void Init_Params(int argc, char*argv[],Parametri* params){
     return;
 }
 
-Generate_Round(int* offset){
+void Generate_Round(int* offset){
     //controllo se l'utente mi ha passato il file contenente le matrici
     char random_string[matrice_di_gioco.size+1];
     if(parametri_server.matrix_file != NULL){
@@ -254,7 +255,7 @@ Generate_Round(int* offset){
     Build_Charmap(matrice_di_gioco);
     time(&start_time);
     alarm(DURATA_PAUSA);
-    return 0;
+    return;
 }
 
 void Load_Dictionary(Trie* Dictionary, char* path_to_dict){
@@ -315,7 +316,6 @@ void* Thread_Handler(void* args){
         Send_Message(client_fd,time_string,MSG_TEMPO_ATTESA);
     }
     free(time_string);
-    
     /*REGISTRO L'UTENTE NELLA TABELLA DEI GIOCATORT*/
     //aspetto la mutex per evitare race condition
     pthread_mutex_lock(&player_mutex);
@@ -376,19 +376,22 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
         case MSG_PAROLA:
             
             if (game_on != 1){Send_Message(comm_fd,"Non puoi sottomettere parole perchè la partita deve ancora cominciare\n",MSG_ERR);return;}
+            //accetto solo parole lunghe più di 4 caratteri
+            if (strlen(input)<4) {Send_Message(comm_fd,"Parola troppo corta\n",MSG_ERR);return;}
             //salvo l'input in una copia per non distruggere la stringa originale
             strcpy(input_cpy,input);
+
             //rimuovo il carattere speciale dalla stringa
-            //Adjust_String(input_cpy,'U');
             Replace_Special(input_cpy,'Q');
+
             //controllo se la parola è componibile nella matrice
             if (Validate(matrice_di_gioco,input_cpy)!=0){Send_Message(comm_fd,"Parola Illegale su questa matrice\n",MSG_ERR);return;}
             
             //controllo parole già indovinate/*questo costa meno che cercare nel dizionario,però vva fatto in parallelo col pignoler*/
-            //if(WL_Find_Word(*already_guessed,input)==0){Send_Message(comm_fd,"Parola già inserita, 0 punti\n",MSG_PUNTI_PAROLA);return;}
+            if(WL_Find_Word(*already_guessed,input)==0){Send_Message(comm_fd,"Parola già inserita, 0 punti\n",MSG_PUNTI_PAROLA);return;}
             
             //controllo lessicale
-            if(search_Trie(input,Dizionario)==-1){Send_Message(comm_fd,"la parola non esiste in italiano\n",MSG_ERR);return;}
+            //if(search_Trie(input,Dizionario)==-1){Send_Message(comm_fd,"la parola non esiste in italiano\n",MSG_ERR);return;}
             
             //inserisco la parola indovinata nella lista
             WL_Push(already_guessed,input);
@@ -411,6 +414,10 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
         case MSG_CHIUSURA_CONNESSIONE:
             Send_Message(comm_fd,"ok",MSG_OK);
             //non mando niente al client perchè potrebbe non essere più aperto il file descriptor di comunicazione
+            return;
+        
+        case MSG_PUNTEGGIO:
+            Send_Message(comm_fd,"punteggio\n",MSG_PUNTEGGIO);
             return;
     }
 }

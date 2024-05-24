@@ -265,8 +265,6 @@ Charmap* Adjust_Charmap(Charmap* map){
 int Validate(Matrix m, char* word){
     /*DICHIARO ED INIZIALIZZO LA LISTA*/
     Position_List l = NULL;
-    /*VENGONO ACCETTATE SOLO STRINGHE LUNGHE ALMENO 4 CARATTERI*/
-    if (strlen(word)<4 ) return -1;
     /*COSTRUISCO UNA MAPPATURA DI TUTTE LE OCCORRENZE DEL PRIMO CARATTERE NELLA MATRICE*/
     Charmap start = Find_Charmap_Element(m,word[0]);
     /*PROVO A COSTRUIRE LA PAROLA SULLA MATRICE*/

@@ -19,7 +19,7 @@
 
 #define NUM_ROWS 4
 #define NUM_COLUMNS 4
-#define HELP_MESSAGE "Per prima cosa se non lo hai già fatto resgistrati mediante il comando registra_utente seguito dal tuo nome, poi potrai usare i seguenti comandi:\np seguito da una parola per indovinare una parola presente nella matrice che vedi a schermo\n matrice per visualizzare a schermo la matrice ed il tempo residuo di gioco\naiuto che ti mostra i comandi a te disponibili\nfine che ti fa uscire dalla partita in corso\n"
+#define HELP_MESSAGE "Per prima cosa se non lo hai già fatto resgistrati mediante il comando registra_utente seguito dal tuo nome, poi potrai usare i seguenti comandi:\np <parola> \tper indovinare una parola presente nella matrice che vedi a schermo\n matrice\tper visualizzare a schermo la matrice ed il tempo residuo di gioco o di attesa\naiuto\tche ti mostra i comandi a te disponibili\nscore\tche ti mostra il tuo punteggio attuale\nfine\tche ti fa uscire dalla partita in corso\n"
 void Play(int client_fd);
 
 int client_fd;
@@ -33,7 +33,7 @@ void gestione_terminazione_errata(int signum) {
     Receive_Message(client_fd,&type);
     printf("sigint\n");
     /*chiudo il socket*/
-    SYSC(retvalue,close(client_fd),"chiusura del cliente");
+    SYSC(retvalue,close(client_fd),"chiusura del client");
     exit(EXIT_SUCCESS);
 }
 int take_action(char* input, int comm_fd);
@@ -183,6 +183,12 @@ int take_action(char* input, int comm_fd){
             return -1;
             break;
         default:
+            if (strcmp(input,"score\n")==0){
+                Send_Message(comm_fd,"punti",MSG_PUNTEGGIO);
+                answer = Receive_Message(comm_fd,&type);
+                writef(retvalue,answer);
+                break;
+            }
             //stampa di default
             writef(retvalue,"comando non disponibile, digitare aiuto per una lista dettagliata\n");
             break;
