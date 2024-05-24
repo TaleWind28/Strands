@@ -75,7 +75,7 @@ char* tempo(int max_dur){
     double elapsed = difftime(end_time,start_time);
     double remaining = max_dur-elapsed; //+ 3;  
     char* mess = malloc(256);
-    sprintf(mess,"tempo restante al prossimo alarm:%f\n",remaining);
+    sprintf(mess,"tempo restante:%f\n",remaining);
     return mess;
 }
 
@@ -153,7 +153,6 @@ int main(int argc, char* argv[]){
     
     /*CREO UN THREAD PER GESTIRE LA CREAZIONE DEL SERVER ED IL DISPATCHING DEI THREAD*/
     SYST(retvalue,pthread_create(&jester,NULL,Gestione_Server,NULL),"nella creazione del giullare");
-    int ctr_value =0;
     int offset = 0;
     //int i =0;
     /*SFRUTTO IL SERVER COME DEALER*/
@@ -161,7 +160,7 @@ int main(int argc, char* argv[]){
         //printf("game_on:%d\n",game_on);
         /*BISOGNA SCRIVERE GENERATE ROUND IN MODO CHE QUANDO ARRIVA SIGINT SI GESTISCA la terminazione E SI CHIUDA*/
         if (WL_Size(Players)>0 && game_on == 0){
-            ctr_value = Generate_Round(&offset);
+            Generate_Round(&offset);
             game_on = -1;
             //sleep(60);
         }
@@ -225,7 +224,7 @@ void Init_Params(int argc, char*argv[],Parametri* params){
     return;
 }
 
-int Generate_Round(int* offset){
+Generate_Round(int* offset){
     //controllo se l'utente mi ha passato il file contenente le matrici
     char random_string[matrice_di_gioco.size+1];
     if(parametri_server.matrix_file != NULL){
@@ -311,6 +310,7 @@ void* Thread_Handler(void* args){
         time_string = tempo(DURATA_PARTITA);
         Send_Message(client_fd,time_string,MSG_TEMPO_PARTITA);
     }else{
+        time(&start_time);
         time_string = tempo(DURATA_PAUSA);
         Send_Message(client_fd,time_string,MSG_TEMPO_ATTESA);
     }
@@ -360,7 +360,7 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
         case MSG_MATRICE:
             if(game_on !=1){
                 time_string = tempo(DURATA_PAUSA);
-                Send_Message(comm_fd,"tempo",MSG_TEMPO_ATTESA);
+                Send_Message(comm_fd,time_string,MSG_TEMPO_ATTESA);
                 return;
             }//invia il tempo di attesa
             printf("game_on:%d\n",game_on);
