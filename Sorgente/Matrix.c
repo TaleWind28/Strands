@@ -134,7 +134,7 @@ void Load_Matrix(Matrix m, char* path_to_file,char exception,int* offset){
             continue;
         }
         buffer[i] = carattere;
-        printf("buffer:%s\n",buffer);
+        //printf("buffer:%s\n",buffer);
     }
     SYSC(*offset,lseek(fd,0,SEEK_CUR),"nella memorizzazione dell'offset");
     //buffer = strtok(buffer,"\n");
@@ -265,8 +265,6 @@ Charmap* Adjust_Charmap(Charmap* map){
 int Validate(Matrix m, char* word){
     /*DICHIARO ED INIZIALIZZO LA LISTA*/
     Position_List l = NULL;
-    /*VENGONO ACCETTATE SOLO STRINGHE LUNGHE ALMENO 4 CARATTERI*/
-    if (strlen(word)<4 ) return -1;
     /*COSTRUISCO UNA MAPPATURA DI TUTTE LE OCCORRENZE DEL PRIMO CARATTERE NELLA MATRICE*/
     Charmap start = Find_Charmap_Element(m,word[0]);
     /*PROVO A COSTRUIRE LA PAROLA SULLA MATRICE*/

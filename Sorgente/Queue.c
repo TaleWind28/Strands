@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/wait.h>
+#include <pthread.h>
 #include "../Header/macro.h"
 #include "../Header/Queue.h"
 
@@ -49,6 +50,12 @@ int WL_Size(Word_List wl){
 char* WL_Peek(Word_List wl){
     if (wl == NULL) return "lista vuota";
     return wl->word;
+}
+
+/*COMUNICO IL GESTORE DELLA TESTA DELLA LISTA*/
+pthread_t WL_Peek_Hanlder(Word_List wl){
+    if (wl == NULL)return -1;
+    return wl->handler;
 }
 
 int WL_Find_Word(Word_List wl,char* word){
