@@ -12,8 +12,11 @@
 /*INSERISCO UN ELEMENTO IN TESTA ALLA LISTA*/
 void WL_Push(Word_List* wl,char* word){
     Word_Node* el = (Word_Node*)malloc(sizeof(Word_Node));
-    
+    //alloco spazio per la parola
     el->word = (char*)malloc(strlen(word)+1);
+    //registro il thread che gestisce l'utente
+    el->handler = pthread_self();
+    //imposto a 0 il punteggio dell'utente
     //printf("%s",word);
     strcpy(el->word,word);
     /*faccio puntare l'elemento alla testa della lista*/

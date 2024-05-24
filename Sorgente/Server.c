@@ -30,7 +30,7 @@
 #define DIZIONARIO "../Text/Dizionario.txt"
 #define MATRICI "../Text/Matrici.txt"
 #define DURATA_PAUSA 20 //20 secondi
-#define DURATA_PARTITA 60 //60 secondi
+#define DURATA_PARTITA 60//60 secondi
 
 typedef struct {
     char* matrix_file;
@@ -52,7 +52,7 @@ void* Gestione_Server(void* args);
 
 /*GENERAL FUNCTIONS*/
 void Init_Params(int argc, char*argv[],Parametri* params);
-void Choose_Action(int client_fd,char type,char* input,Word_List* already_guessed,int points);
+void Choose_Action(int client_fd,char type,char* input,Word_List* already_guessed,int* points);
 void Generate_Round();
 void Load_Dictionary(Trie* Dictionary, char* path_to_dict);
 void Replace_Special(char* string,char special);
@@ -105,10 +105,19 @@ void gestore_segnale(int signum) {
             game_starting = 0;
             ready = 0;
             game_on = 0;
-            //dico a tutti i thread di mandare i risultati allo scorer
+            //dico a tutti i thread di mandare i risultati allo scorerù
+            Word_List temp = Players;
+            for(int i = 0;i<WL_Size(Players);i++){
+                pthread_t handler = WL_Peek_Hanlder(temp);
+                SYST(retvalue,pthread_kill(handler,SIGUSR1),"nell'avviso di mandare il punteggio allo scorer");
+                temp = temp->next;
+            }
             printf("game off\n");
         }
-    } 
+    }
+    if (signum == SIGUSR1){
+        printf("mando allo scorer%ld\n",pthread_self());
+    }
 }
 
 int main(int argc, char* argv[]){
@@ -121,13 +130,16 @@ int main(int argc, char* argv[]){
     //maschera seganle per SIGINT
     SYSC(retvalue,sigaddset(&maschera_segnale,SIGINT),"aggiunta SIGINT alla maschera");
     SYSC(retvalue,sigaddset(&maschera_segnale,SIGALRM),"aggiunta di SIGALARM alla maschera");
+    SYSC(retvalue,sigaddset(&maschera_segnale,SIGUSR1),"aggiunta di SIGUSR1 alla maschera");
 
     /*IMPOSTO LA SIGACTION*/
     azione_SIGINT.sa_handler = gestore_segnale;
     azione_SIGINT.sa_mask = maschera_segnale;
+    azione_SIGINT.sa_flags = SA_RESTART;
     /*IMPOSTO IL GESTORE*/
     sigaction(SIGINT,&azione_SIGINT,NULL);
     sigaction(SIGALRM,&azione_SIGINT,NULL);
+    sigaction(SIGUSR1,&azione_SIGINT,NULL);
     /*INIZIALIZZO I PARAMETRI PASSATI DA RIGA DI COMANDO, COMPRESI QUELLI OPZIONALI*/
     Init_Params(argc,argv,&parametri_server);
     //inizializzo la lista di giocatori
@@ -175,6 +187,7 @@ int main(int argc, char* argv[]){
 //
 /*FINE MAIN*/
 //
+
 void Init_Params(int argc, char*argv[],Parametri* params){
     int opt, index = 0;
     /*DEFINISCO UNA STRUCT CON I PARAMETRI OPZIONALI CHE IL PROGRAMMA PUò RICEVERE*/
@@ -281,6 +294,7 @@ void Load_Dictionary(Trie* Dictionary, char* path_to_dict){
     
     return;
 }
+
 /*THREAD CHE GESTISCE UN CLIENT*/
 void* Thread_Handler(void* args){
     /*DICHIARAZIONE VARIABILI*/
@@ -328,7 +342,7 @@ void* Thread_Handler(void* args){
         //prendo l'input dell'utente
         input = Receive_Message(client_fd,&type);
         //Gioco con l'utente
-        Choose_Action(client_fd,type,input,&parole_indovinate,points);
+        Choose_Action(client_fd,type,input,&parole_indovinate,&points);
         //libero l'input per il prossimo ciclo
         free(input);
     }
@@ -350,10 +364,10 @@ void* Thread_Handler(void* args){
     return NULL;
 }
 
-void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed,int points){
+void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed,int* points){
     char *matrix,*time_string;
     char*input_cpy = malloc(strlen(input));
-    
+    char* mess = malloc(35);
     switch(type){
         case MSG_MATRICE:
             if(game_on !=1){
@@ -396,9 +410,10 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
             //comunico al client che la parola era corretta insieme al punteggio
             char message[buff_size];
             //aumento i punti
-            points+= strlen(input);
+            *points+= strlen(input);
             //calcolo i punti in base alla lunghezza della stringa
             sprintf(message,"Complimenti la parola che hai inserito vale %ld punti\n",strlen(input));
+            //aggiorno il punteggio dell'utente
             //invio all'utente il messaggio con i suoi punti
             Send_Message(comm_fd,message,MSG_PUNTI_PAROLA);
             free(input_cpy);
@@ -415,7 +430,9 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
             return;
         
         case MSG_PUNTEGGIO:
-            Send_Message(comm_fd,"punteggio",MSG_PUNTEGGIO);
+            sprintf(mess,"il tuo punteggio attuale è %d\n",*points);
+            Send_Message(comm_fd,mess,MSG_PUNTEGGIO);
+            free(mess);
             return ;
     }
 }
@@ -436,6 +453,7 @@ void Replace_Special(char* string,char special){
     printf("carattere:%s\n",string);
     return;
 }
+
 /*THREAD CHE GESTISCE LA CREAZIONE DEL SERVER E L'ACCETTAZIONE DEI GIOCATORI*/
 void* Gestione_Server(void* args){
     /*dichiarazione variabili*/
