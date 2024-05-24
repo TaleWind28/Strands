@@ -65,7 +65,7 @@ pthread_mutex_t player_mutex;
 
 char* HOST;
 int PORT;
-int game_on = 0; 
+int game_on = 0,ready = 0,game_starting; 
 int server_fd;
 time_t start_time,end_time;
 //
@@ -91,32 +91,28 @@ void gestore_segnale(int signum) {
   if (signum == SIGALRM) {
     write(1, "ricevuto segnale SIGALRM\n", 25);
     switch(game_on){
-        case -1: // server per semplificare la gestione dei round
-            start_time = end_time +1;
-            alarm(DURATA_PARTITA);
-            game_on = 1;
-            printf("game on, dalla generazione\n");
-            break;
         case 0:
-            start_time = end_time +1; 
+            start_time = end_time; 
             //durata partita
             alarm(DURATA_PARTITA);
             game_on = 1;
             printf("game on\n");
             break;
         case 1:
-            start_time = end_time +1;
+            time(&end_time);
+            start_time = end_time;
             //durata pausa
-            alarm(DURATA_PAUSA);
+            game_starting = 0;
+            ready = 0;
             game_on = 0;
             //dico a tutti i thread di mandare i risultati allo scorer
             printf("game off\n");
-      }
+        }
     } 
 }
 
 int main(int argc, char* argv[]){
-    /*DICIARAZIONE VARIABILI*/
+    /*DICHIARAZIONE VARIABILI*/
     int retvalue;
     pthread_t jester;
     struct sigaction azione_SIGINT;
@@ -160,10 +156,14 @@ int main(int argc, char* argv[]){
     while(1){
         //printf("game_on:%d\n",game_on);
         /*BISOGNA SCRIVERE GENERATE ROUND IN MODO CHE QUANDO ARRIVA SIGINT SI GESTISCA la terminazione E SI CHIUDA*/
-        if (WL_Size(Players)>0 && game_on == 0){
+        if (ready == 0){
             Generate_Round(&offset);
-            game_on = -1;
-            //sleep(60);
+            ready = 1;
+        }
+        if (WL_Size(Players)>0 && game_starting == 0){
+            time(&start_time);
+            alarm(DURATA_PAUSA);
+            game_starting = 1;
         }
         //break;
     }
@@ -253,8 +253,6 @@ void Generate_Round(int* offset){
     Print_Matrix(matrice_di_gioco,'?','Q');
     //costruisco la mappatura dei caratteri presenti nella matrice
     Build_Charmap(matrice_di_gioco);
-    time(&start_time);
-    alarm(DURATA_PAUSA);
     return;
 }
 
@@ -417,8 +415,8 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
             return;
         
         case MSG_PUNTEGGIO:
-            Send_Message(comm_fd,"punteggio\n",MSG_PUNTEGGIO);
-            return;
+            Send_Message(comm_fd,"punteggio",MSG_PUNTEGGIO);
+            return ;
     }
 }
 

@@ -134,7 +134,7 @@ void Load_Matrix(Matrix m, char* path_to_file,char exception,int* offset){
             continue;
         }
         buffer[i] = carattere;
-        printf("buffer:%s\n",buffer);
+        //printf("buffer:%s\n",buffer);
     }
     SYSC(*offset,lseek(fd,0,SEEK_CUR),"nella memorizzazione dell'offset");
     //buffer = strtok(buffer,"\n");

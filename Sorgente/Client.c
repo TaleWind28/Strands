@@ -11,6 +11,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <pthread.h>
 #include <errno.h>
 #include "../Header/macro.h"
 #include "../Header/Matrix.h"
@@ -23,18 +24,35 @@
 void Play(int client_fd);
 
 int client_fd;
-
+void* ascolta(void* args);
+pthread_t main_thread;
 Matrix matrice_player;
+
 void gestione_terminazione_errata(int signum) {
     char type;int retvalue;
-    //invio un messaggio al server dicendogli che ho avuto un problema
-    Send_Message(client_fd,"Ricevuto_Sigint",MSG_CHIUSURA_CONNESSIONE);
-    //aspetto che mi risponda per evitare di chiiudere troppo presto il file descriptor
-    Receive_Message(client_fd,&type);
-    printf("sigint\n");
-    /*chiudo il socket*/
-    SYSC(retvalue,close(client_fd),"chiusura del client");
-    exit(EXIT_SUCCESS);
+    if (signum == SIGINT){
+        
+    }
+    switch (signum){
+        case SIGINT:
+            //invio un messaggio al server dicendogli che ho avuto un problema
+            Send_Message(client_fd,"Ricevuto_Sigint",MSG_CHIUSURA_CONNESSIONE);
+            //aspetto che mi risponda per evitare di chiiudere troppo presto il file descriptor
+            Receive_Message(client_fd,&type);
+            printf("sigint\n");
+            /*chiudo il socket*/
+            SYSC(retvalue,close(client_fd),"chiusura del client");
+            exit(EXIT_SUCCESS);
+            break;
+        
+        case SIGUSR1:
+            SYSC(retvalue,close(client_fd),"nella chiusura del client perchè è morto il server");
+            writef(retvalue,"Ci scusiamo per il disagio ma il server ha deciso di morire, grazie per aver giocato\n");
+            exit(EXIT_SUCCESS);
+            break;
+        case SIGUSR2:
+            break;
+    }
 }
 int take_action(char* input, int comm_fd);
 
@@ -48,7 +66,7 @@ int main(int argc, char* argv[]){
     /*INIZIALIZZAZIONE VARIABILI IN BASE ALL'ARGOMENTO DELLA RIGA DI COMANDO*/
     char* HOST = argv[1];
     int PORT = atoi(argv[2]);
-
+    main_thread = pthread_self();
     /*CONTROLLO PARAMETRI RIGA DI COMANDO*/
     if(argc != 3){
         perror("usare la seguente sintassi: nome programa host porta_server");
@@ -68,6 +86,7 @@ int main(int argc, char* argv[]){
      /*IMPOSTO LA MASCHERA*/
     sigemptyset(&maschera_segnale);
     SYSC(retvalue,sigaddset(&maschera_segnale,SIGINT),"aggiunta SIGINT alla maschera");
+    SYSC(retvalue,sigaddset(&maschera_segnale,SIGUSR1),"aggiunta SIGINT alla maschera");
 
     /*IMPOSTO LA SIGACTION*/
     azione_segnale.sa_handler = gestione_terminazione_errata;
@@ -75,7 +94,9 @@ int main(int argc, char* argv[]){
   
     /*IMPOSTO IL GESTORE*/
     sigaction(SIGINT,&azione_segnale,NULL);
-   
+    sigaction(SIGUSR1,&azione_segnale,NULL);
+    // pthread_t listner;
+    // SYST(retvalue,pthread_create(&listner,NULL,ascolta,NULL),"nella creazione del listner");
     //char type = '0';
     char input_buffer[buff_size];
     ssize_t n_read;
@@ -195,3 +216,15 @@ int take_action(char* input, int comm_fd){
     }   
     return 0;
 }
+
+// void* ascolta(void* args){
+//     char type = '0';
+//     char* answer;
+//     while(type != MSG_CHIUSURA_CONNESSIONE){
+//         answer = Receive_Message(client_fd,&type);
+//         free(answer);
+//     }
+//     //mando un SIGUSR1 al thread principale
+//     pthread_kill(main_thread,SIGUSR1);
+//     return NULL;
+// }

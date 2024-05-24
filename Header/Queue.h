@@ -1,6 +1,9 @@
+#include <pthread.h>
+
 /*WORD_NODE*/
 typedef struct w{
     char* word;
+    pthread_t handler;
     struct w* next;
 }Word_Node;
 
@@ -18,6 +21,9 @@ int WL_Size(Word_List wl);
 
 /*COMUNICO LA TESTA DELLA LISTA*/
 char* WL_Peek(Word_List wl);
+
+/*COMUNICO IL GESTORE DELLA TESTA DELLA LISTA*/
+pthread_t WL_Peek_Hanlder(Word_List wl);
 
 /*CERCO UN ELEMENTO ALL'INTERNO DELLA LISTA*/
 int WL_Find_Word(Word_List wl, char* word);
