@@ -120,13 +120,20 @@ int take_action(char* input, int comm_fd){
             if (type == MSG_OK){
                 //aspetto la matrice dal server
                 matrice = Receive_Message(comm_fd,&type);
-                //riempio la matrice
-                Fill_Matrix(matrice_player,matrice);
-                //stampo la matrice al client
-                writef(retvalue,"Questa è la matrice su cui giocare\n");
-                Print_Matrix(matrice_player,'?','Q');
-                //pulisco la stringa dove ho ricevuto la matrice
-                free(matrice);
+                if (type == MSG_TEMPO_ATTESA){
+                    writef(retvalue,matrice);
+                    break;
+                }else{
+                    //riempio la matrice
+                    Fill_Matrix(matrice_player,matrice);
+                    //stampo la matrice al client
+                    writef(retvalue,"Questa è la matrice su cui giocare\n");
+                    Print_Matrix(matrice_player,'?','Q');
+                    char* tempo = Receive_Message(comm_fd,&type);
+                    writef(retvalue,tempo);
+                    //pulisco la stringa dove ho ricevuto la matrice
+                    free(matrice);
+                }
             }
             break;
         case 'm':
@@ -145,6 +152,8 @@ int take_action(char* input, int comm_fd){
             Print_Matrix(matrice_player,'?','Q');
             //pulisco la stringa dove ho ricevuto la matrice
             free(matrice);
+            char* time_string = Receive_Message(comm_fd,&type);
+            writef(retvalue,time_string);
             break;
         case 'p':
             //tokenizzo la stringa per ottenere la parla inserita dall'utente
