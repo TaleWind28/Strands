@@ -361,6 +361,11 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
     char *matrix,*time_string;
     char*input_cpy = malloc(strlen(input));
     char* mess = malloc(35);
+    if (game_on == 0){
+        while(WL_Size(*already_guessed)>0){
+            WL_Pop(already_guessed);
+        }
+    }
     switch(type){
         case MSG_MATRICE:
             if(game_on !=1){
