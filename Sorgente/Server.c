@@ -47,15 +47,18 @@ enum {
 };
 
 /*THREAD FUNCTIONS*/
-void* Thread_Handler(void* );
+void* Thread_Handler(void* args);
 void* Gestione_Server(void* args);
+void* Fine_Round(void* args);
 
 /*GENERAL FUNCTIONS*/
 void Init_Params(int argc, char*argv[],Parametri* params);
+void Init_SIGMASK();
 void Choose_Action(int client_fd,char type,char* input,Word_List* already_guessed,int* points);
 void Generate_Round();
 void Load_Dictionary(Trie* Dictionary, char* path_to_dict);
 void Replace_Special(char* string,char special);
+
 /*GLOBAL VARIABLES*/
 Parametri parametri_server;
 Word_List Players;
@@ -105,7 +108,7 @@ void gestore_segnale(int signum) {
             game_starting = 0;
             ready = 0;
             game_on = 0;
-            //dico a tutti i thread di mandare i risultati allo scorerù
+            //dico a tutti i thread di mandare i risultati allo scorer
             Word_List temp = Players;
             for(int i = 0;i<WL_Size(Players);i++){
                 pthread_t handler = WL_Peek_Hanlder(temp);
@@ -116,6 +119,8 @@ void gestore_segnale(int signum) {
         }
     }
     if (signum == SIGUSR1){
+        //ripensare scorer
+        //int actual_score = WL_Retrieve_Score(Players,);
         printf("mando allo scorer%ld\n",pthread_self());
     }
 }
@@ -123,23 +128,10 @@ void gestore_segnale(int signum) {
 int main(int argc, char* argv[]){
     /*DICHIARAZIONE VARIABILI*/
     int retvalue;
-    pthread_t jester;
-    struct sigaction azione_SIGINT;
-    sigset_t maschera_segnale;
-    sigemptyset(&maschera_segnale);
-    //maschera seganle per SIGINT
-    SYSC(retvalue,sigaddset(&maschera_segnale,SIGINT),"aggiunta SIGINT alla maschera");
-    SYSC(retvalue,sigaddset(&maschera_segnale,SIGALRM),"aggiunta di SIGALARM alla maschera");
-    SYSC(retvalue,sigaddset(&maschera_segnale,SIGUSR1),"aggiunta di SIGUSR1 alla maschera");
+    pthread_t jester,scorer;
 
-    /*IMPOSTO LA SIGACTION*/
-    azione_SIGINT.sa_handler = gestore_segnale;
-    azione_SIGINT.sa_mask = maschera_segnale;
-    azione_SIGINT.sa_flags = SA_RESTART;
-    /*IMPOSTO IL GESTORE*/
-    sigaction(SIGINT,&azione_SIGINT,NULL);
-    sigaction(SIGALRM,&azione_SIGINT,NULL);
-    sigaction(SIGUSR1,&azione_SIGINT,NULL);
+    //inizializzo la maschera per i segnali
+    Init_SIGMASK();
     /*INIZIALIZZO I PARAMETRI PASSATI DA RIGA DI COMANDO, COMPRESI QUELLI OPZIONALI*/
     Init_Params(argc,argv,&parametri_server);
     //inizializzo la lista di giocatori
@@ -162,6 +154,7 @@ int main(int argc, char* argv[]){
     
     /*CREO UN THREAD PER GESTIRE LA CREAZIONE DEL SERVER ED IL DISPATCHING DEI THREAD*/
     SYST(retvalue,pthread_create(&jester,NULL,Gestione_Server,NULL),"nella creazione del giullare");
+    SYST(retvalue,pthread_create(&scorer,NULL,Fine_Round,NULL),"nella creazione dello scorer");
     int offset = 0;
     //int i =0;
     /*SFRUTTO IL SERVER COME DEALER*/
@@ -490,5 +483,30 @@ void* Gestione_Server(void* args){
     }
     /*CHIUSURA DEL SOCKET*/
     SYSC(retvalue,close(server_fd),"chiusura server");
+    return NULL;
+}
+
+void Init_SIGMASK(){
+    int retvalue;
+    struct sigaction azione_SIGINT;
+    sigset_t maschera_segnale;
+    sigemptyset(&maschera_segnale);
+    //maschera seganle per SIGINT
+    SYSC(retvalue,sigaddset(&maschera_segnale,SIGINT),"aggiunta SIGINT alla maschera");
+    SYSC(retvalue,sigaddset(&maschera_segnale,SIGALRM),"aggiunta di SIGALARM alla maschera");
+    SYSC(retvalue,sigaddset(&maschera_segnale,SIGUSR1),"aggiunta di SIGUSR1 alla maschera");
+
+    /*IMPOSTO LA SIGACTION*/
+    azione_SIGINT.sa_handler = gestore_segnale;
+    azione_SIGINT.sa_mask = maschera_segnale;
+    azione_SIGINT.sa_flags = SA_RESTART;
+    /*IMPOSTO IL GESTORE*/
+    sigaction(SIGINT,&azione_SIGINT,NULL);
+    sigaction(SIGALRM,&azione_SIGINT,NULL);
+    sigaction(SIGUSR1,&azione_SIGINT,NULL);
+    return;
+}
+
+void* Fine_Round(void* args){
     return NULL;
 }

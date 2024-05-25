@@ -17,6 +17,7 @@ void WL_Push(Word_List* wl,char* word){
     //registro il thread che gestisce l'utente
     el->handler = pthread_self();
     //imposto a 0 il punteggio dell'utente
+    el->points = 0;
     //printf("%s",word);
     strcpy(el->word,word);
     /*faccio puntare l'elemento alla testa della lista*/
@@ -73,6 +74,29 @@ int WL_Find_Word(Word_List wl,char* word){
     
     /*chiamata ricorsiva*/
     return WL_Find_Word(wl->next,word);
+}
+
+int WL_Update_Score(Word_List wl,char* word,int new_score){
+    //caso base
+    if (wl == NULL) return 0;
+    //caso base
+    if(wl->word == word){
+        wl->points+= new_score;
+        return 0;
+    }
+    //caso ricorsivo
+    return WL_Update_Score(wl->next,word,new_score);
+}
+//ripensare
+int WL_Retrieve_Score(Word_List wl,char* word){
+    //caso base
+    if (wl == NULL)return -1;
+    //caso base
+    if (wl->word == word){
+        return wl->points;
+    }
+    //caso ricorsivo
+    return WL_Retrieve_Score(wl->next,word);
 }
 
 int WL_Splice(Word_List* wl,char* word){
