@@ -295,10 +295,15 @@ void* Thread_Handler(void* args){
     /*RECUPERO IL VALORE PASSATO AL THREAD NELLA PTHREAD CREATE*/
     int client_fd = *(int*) args;
     Word_List parole_indovinate = NULL;
+    
     //accetto solo la registrazione dell'utente
     username = Receive_Message(client_fd,&type);
+
+    writef(retvalue,"io");
+    
     //controllo che l'username sia valido
     int exists = WL_Find_Word(Players,username);
+    
     while((type != MSG_REGISTRA_UTENTE && type != MSG_CHIUSURA_CONNESSIONE) || exists == 0 || strlen(username)>10){
         free(username);
         if(strlen(username)>10)Send_Message(client_fd,"Username troppo lungo\n",MSG_ERR);

@@ -21,10 +21,9 @@
 #define NUM_ROWS 4
 #define NUM_COLUMNS 4
 #define HELP_MESSAGE "Per prima cosa se non lo hai già fatto resgistrati mediante il comando registra_utente seguito dal tuo nome, poi potrai usare i seguenti comandi:\np <parola> \tper indovinare una parola presente nella matrice che vedi a schermo\n matrice\tper visualizzare a schermo la matrice ed il tempo residuo di gioco o di attesa\naiuto\tche ti mostra i comandi a te disponibili\nscore\tche ti mostra il tuo punteggio attuale\nfine\tche ti fa uscire dalla partita in corso\n"
-void Play(int client_fd);
-
 int client_fd;
-void* ascolta(void* args);
+void* bounce(void* args);
+void* trade(void* args);
 pthread_t main_thread;
 Matrix matrice_player;
 
@@ -45,15 +44,16 @@ void gestione_terminazione_errata(int signum) {
             exit(EXIT_SUCCESS);
             break;
         
-        case SIGUSR1:
-            SYSC(retvalue,close(client_fd),"nella chiusura del client perchè è morto il server");
-            writef(retvalue,"Ci scusiamo per il disagio ma il server ha deciso di morire, grazie per aver giocato\n");
-            exit(EXIT_SUCCESS);
-            break;
-        case SIGUSR2:
-            break;
+        // case SIGUSR1:
+        //     SYSC(retvalue,close(client_fd),"nella chiusura del client perchè è morto il server");
+        //     writef(retvalue,"Ci scusiamo per il disagio ma il server ha deciso di morire, grazie per aver giocato\n");
+        //     exit(EXIT_SUCCESS);
+        //     break;
+        // case SIGUSR2:
+        //     break;
     }
 }
+
 int take_action(char* input, int comm_fd);
 
 int main(int argc, char* argv[]){
@@ -83,7 +83,7 @@ int main(int argc, char* argv[]){
     /*chiamo la connect*/
     SYSC(retvalue,connect(client_fd,(struct sockaddr*)&server_address,server_len),"nella connect");
     writef(retvalue,"connesso\n");
-     /*IMPOSTO LA MASCHERA*/
+    /*IMPOSTO LA MASCHERA*/
     sigemptyset(&maschera_segnale);
     SYSC(retvalue,sigaddset(&maschera_segnale,SIGINT),"aggiunta SIGINT alla maschera");
     SYSC(retvalue,sigaddset(&maschera_segnale,SIGUSR1),"aggiunta SIGINT alla maschera");
@@ -95,136 +95,246 @@ int main(int argc, char* argv[]){
     /*IMPOSTO IL GESTORE*/
     sigaction(SIGINT,&azione_segnale,NULL);
     sigaction(SIGUSR1,&azione_segnale,NULL);
-    // pthread_t listner;
-    // SYST(retvalue,pthread_create(&listner,NULL,ascolta,NULL),"nella creazione del listner");
-    //char type = '0';
-    char input_buffer[buff_size];
-    ssize_t n_read;
+
+    // char input_buffer[buff_size];
+    // ssize_t n_read;
     matrice_player = Create_Matrix(4,4);
-    while(1){
-        SYSC(n_read,read(STDIN_FILENO,input_buffer,buff_size),"nella lettura dell'input utente");
-        char* input = (char*)malloc(n_read+1);
-        strncpy(input,input_buffer,n_read);
-        input[n_read] = '\0';
-        if (take_action(input,client_fd)==-1)break;
-        free(input);
-    }
+    pthread_t bouncer,merchant;
+    SYST(retvalue,pthread_create(&bouncer,NULL,bounce,&client_fd),"nella creazione del bouncer");
+    SYST(retvalue,pthread_create(&merchant,NULL,trade,&client_fd),"nella creazione del mercante");
+    // while(1){
+    //     writef(retvalue,"aia");
+    //     SYSC(n_read,read(STDIN_FILENO,input_buffer,buff_size),"nella lettura dell'input utente");
+    //     writef(retvalue,"aia");
+    //     input = (char*)malloc(n_read+1);
+    //     strncpy(input,input_buffer,n_read);
+    //     input[n_read] = '\0';
+    //     free(input);
+    // }
+    SYST(retvalue,pthread_join(bouncer,NULL),"attesa del bouncer");
+    SYST(retvalue,pthread_join(merchant,NULL),"attesa del merchant");
     /*chiudo il socket*/
     SYSC(retvalue,close(client_fd),"chiusura del cliente");
 }
 
-int take_action(char* input, int comm_fd){
-    //dichiarazione ed inizializzazione variabili
-    int retvalue;
-    char type = MSG_ERR,*answer,*matrice;
-    char* token = strtok(input, " ");
+// int take_action(char* input, int comm_fd){
+//     //dichiarazione ed inizializzazione variabili
+//     int retvalue;
+//     char type = MSG_ERR,*answer,*matrice;
+//     char* token = strtok(input, " ");
 
-    switch(input[0]){
-        case 'a':
-            writef(retvalue,HELP_MESSAGE);
-            break;
-        case 'r': 
-            token = strtok(NULL,"\n");
-            if (token == NULL || token[0] == '\n'){
-                writef(retvalue,"nome utente non valido\n");
+//     switch(input[0]){
+//         case 'a':
+//             writef(retvalue,HELP_MESSAGE);
+//             break;
+//         case 'r': 
+//             token = strtok(NULL,"\n");
+//             if (token == NULL || token[0] == '\n'){
+//                 writef(retvalue,"nome utente non valido\n");
+//                 break;
+//             }
+//             //invio al server il messaggio con le credenziali per la registrazione
+//             Send_Message(comm_fd,token,MSG_REGISTRA_UTENTE);
+//             // //aspetto la risposta del server
+//             // answer = Receive_Message(comm_fd,&type);
+//             // //stampo all'utente la risposta
+//             // writef(retvalue,answer);
+//             // //pulisco la risposta
+//             // free(answer);
+//             // //controllo se la registrazione è andata a buon fine
+//             // if (type == MSG_OK){
+//             //     //aspetto la matrice dal server
+//             //     matrice = Receive_Message(comm_fd,&type);
+//             //     if (type == MSG_TEMPO_ATTESA){
+//             //         writef(retvalue,matrice);
+//             //         break;
+//             //     }else{
+//             //         //riempio la matrice
+//             //         Fill_Matrix(matrice_player,matrice);
+//             //         //stampo la matrice al client
+//             //         writef(retvalue,"Questa è la matrice su cui giocare\n");
+//             //         Print_Matrix(matrice_player,'?','Q');
+//             //         char* tempo = Receive_Message(comm_fd,&type);
+//             //         writef(retvalue,tempo);
+//             //         //pulisco la stringa dove ho ricevuto la matrice
+//             //         free(matrice);
+//             //     }
+//             // }
+//             break;
+//         case 'm':
+//             //invio al server la richiesta della matrice
+//             Send_Message(comm_fd,"matrice",MSG_MATRICE);
+//             //aspetto la risposta del server
+//             // matrice = Receive_Message(comm_fd,&type);
+//             // //controllo di aver ricevuto la matrice
+//             // if (type != MSG_MATRICE){writef(retvalue,matrice);free(matrice);break;}
+//             // //in caso affermativo la riempio
+//             // char mess[buff_size];
+//             // sprintf(mess,"matrice:%s\n",matrice);
+//             // writef(retvalue,mess);
+//             // Fill_Matrix(matrice_player,matrice);
+//             // //e la stampo all'utente
+//             // Print_Matrix(matrice_player,'?','Q');
+//             // //pulisco la stringa dove ho ricevuto la matrice
+//             // free(matrice);
+//             // char* time_string = Receive_Message(comm_fd,&type);
+//             // writef(retvalue,time_string);
+//             break;
+//         case 'p':
+//             //tokenizzo la stringa per ottenere la parla inserita dall'utente
+//             token = strtok(NULL,"\n");
+//             //controllo che il token contenga qualcosa 
+//             if (token == NULL || token[0] == '\n'){
+//                 //se il token è vuoto la parola è automaticamente sbagliata, quindi la considero come parola lunga 3 minuscola con il \n
+//                 Send_Message(comm_fd,"lol\n",MSG_PAROLA);
+//             }else{
+//                 //rendo maiuscola la stringa
+//                 Caps_Lock(token);
+//                 //invio al server la parola
+//                 Send_Message(comm_fd,token,MSG_PAROLA);
+//             }
+//             // //aspetto la risposta dal server
+//             // answer = Receive_Message(comm_fd,&type);
+//             // //stampo all'utente la risposta
+//             // writef(retvalue,answer);
+//             // //pulisco la variabile dove ho ricevuto la risposta dal server
+//             // free(answer);
+//             break;
+//         case 'f':
+//             //comunico al server che l'utente si sta disconnettendo
+//             Send_Message(comm_fd,"fine",MSG_CHIUSURA_CONNESSIONE);
+//             // Receive_Message(comm_fd,&type);
+//             //ritorno -1 per segnalare che devo terminare il client
+//             return -1;
+//             break;
+//         default:
+//             if (strcmp(input,"score\n")==0){
+//                 Send_Message(comm_fd,"punti",MSG_PUNTEGGIO);
+//                 // answer = Receive_Message(comm_fd,&type);
+//                 // writef(retvalue,answer);
+//                 break;
+//             }
+//             //stampa di default
+//             writef(retvalue,"comando non disponibile, digitare aiuto per una lista dettagliata\n");
+//             break;
+//     }   
+//     return 0;
+// }
+
+
+void* bounce(void* args){
+    int comm_fd = *(int*)args;
+    char type = '0';
+    int retvalue;
+    //aspetto la risposta del server
+    while (1){
+        char* answer = Receive_Message(comm_fd,&type);
+        switch(type){
+            case MSG_MATRICE:
+                //riempio la matrice
+                Fill_Matrix(matrice_player,answer);
+                //stampo la matrice al client
+                writef(retvalue,"Questa è la matrice su cui giocare\n");
+                Print_Matrix(matrice_player,'?','Q');
                 break;
-            }
-            //invio al server il messaggio con le credenziali per la registrazione
-            Send_Message(comm_fd,token,MSG_REGISTRA_UTENTE);
-            //aspetto la risposta del server
-            answer = Receive_Message(comm_fd,&type);
-            //stampo all'utente la risposta
-            writef(retvalue,answer);
-            //pulisco la risposta
-            free(answer);
-            //controllo se la registrazione è andata a buon fine
-            if (type == MSG_OK){
-                //aspetto la matrice dal server
-                matrice = Receive_Message(comm_fd,&type);
-                if (type == MSG_TEMPO_ATTESA){
-                    writef(retvalue,matrice);
-                    break;
-                }else{
-                    //riempio la matrice
-                    Fill_Matrix(matrice_player,matrice);
-                    //stampo la matrice al client
-                    writef(retvalue,"Questa è la matrice su cui giocare\n");
-                    Print_Matrix(matrice_player,'?','Q');
-                    char* tempo = Receive_Message(comm_fd,&type);
-                    writef(retvalue,tempo);
-                    //pulisco la stringa dove ho ricevuto la matrice
-                    free(matrice);
-                }
-            }
-            break;
-        case 'm':
-            //invio al server la richiesta della matrice
-            Send_Message(comm_fd,"matrice",MSG_MATRICE);
-            //aspetto la risposta del server
-            matrice = Receive_Message(comm_fd,&type);
-            //controllo di aver ricevuto la matrice
-            if (type != MSG_MATRICE){writef(retvalue,matrice);free(matrice);break;}
-            //in caso affermativo la riempio
-            char mess[buff_size];
-            sprintf(mess,"matrice:%s\n",matrice);
-            writef(retvalue,mess);
-            Fill_Matrix(matrice_player,matrice);
-            //e la stampo all'utente
-            Print_Matrix(matrice_player,'?','Q');
-            //pulisco la stringa dove ho ricevuto la matrice
-            free(matrice);
-            char* time_string = Receive_Message(comm_fd,&type);
-            writef(retvalue,time_string);
-            break;
-        case 'p':
-            //tokenizzo la stringa per ottenere la parla inserita dall'utente
-            token = strtok(NULL,"\n");
-            //controllo che il token contenga qualcosa 
-            if (token == NULL || token[0] == '\n'){
-                //se il token è vuoto la parola è automaticamente sbagliata, quindi la considero come parola lunga 3 minuscola con il \n
-                Send_Message(comm_fd,"lol\n",MSG_PAROLA);
-            }else{
-                //rendo maiuscola la stringa
-                Caps_Lock(token);
-                //invio al server la parola
-                Send_Message(comm_fd,token,MSG_PAROLA);
-            }
-            //aspetto la risposta dal server
-            answer = Receive_Message(comm_fd,&type);
-            //stampo all'utente la risposta
-            writef(retvalue,answer);
-            //pulisco la variabile dove ho ricevuto la risposta dal server
-            free(answer);
-            break;
-        case 'f':
-            //comunico al server che l'utente si sta disconnettendo
-            Send_Message(comm_fd,"fine",MSG_CHIUSURA_CONNESSIONE);
-            Receive_Message(comm_fd,&type);
-            //ritorno -1 per segnalare che devo terminare il client
-            return -1;
-            break;
-        default:
-            if (strcmp(input,"score\n")==0){
-                Send_Message(comm_fd,"punti",MSG_PUNTEGGIO);
-                answer = Receive_Message(comm_fd,&type);
+            
+            case MSG_TEMPO_ATTESA:
+                //stampo al client la durata residua
+                writef(retvalue,"Durata residua pausa ");
                 writef(retvalue,answer);
                 break;
-            }
-            //stampa di default
-            writef(retvalue,"comando non disponibile, digitare aiuto per una lista dettagliata\n");
-            break;
-    }   
-    return 0;
+            
+            case MSG_TEMPO_PARTITA:
+                writef(retvalue,"Durata residua partita ");
+                writef(retvalue,answer);
+                break;
+            
+            case MSG_PUNTI_PAROLA:
+                writef(retvalue,answer);
+                break;
+            
+            case MSG_PUNTI_FINALI:
+                //scorer
+                break;
+
+            case MSG_ERR:
+                writef(retvalue,answer);
+                break;
+            
+            case MSG_OK:
+                writef(retvalue,answer);
+                break;
+
+            case MSG_CHIUSURA_CONNESSIONE:
+                writef(retvalue,"Chiusura client causa morte del server\n");
+                break;
+            
+            
+        }
+        free(answer);
+    }
+    //mando un SIGUSR1 al thread principale
+    pthread_kill(main_thread,SIGUSR1);
+    return NULL;
 }
 
-// void* ascolta(void* args){
-//     char type = '0';
-//     char* answer;
-//     while(type != MSG_CHIUSURA_CONNESSIONE){
-//         answer = Receive_Message(client_fd,&type);
-//         free(answer);
-//     }
-//     //mando un SIGUSR1 al thread principale
-//     pthread_kill(main_thread,SIGUSR1);
-//     return NULL;
-// }
+void* trade(void* args){
+    int comm_fd = *(int*) args;
+    int retvalue;ssize_t n_read;
+    writef(retvalue,"tt");writef(retvalue,"trade\n");
+    char input_buffer[buff_size];
+    while(1){
+        SYSC(n_read,read(STDIN_FILENO,input_buffer,buff_size),"nella lettura da stdin");
+        char* input = (char*)malloc(n_read+1);
+        char* token = strtok(input," ");
+        strncpy(input,input_buffer,n_read);
+        input[n_read] = '\0';
+        switch(input[0]){
+            case 'a':
+                writef(retvalue,HELP_MESSAGE);
+                break;
+            case 'r': 
+                token = strtok(NULL,"\n");
+                if (token == NULL || token[0] == '\n'){
+                    writef(retvalue,"nome utente non valido\n");
+                    break;
+                }
+                writef(retvalue,token)
+                //invio al server il messaggio con le credenziali per la registrazione
+                Send_Message(comm_fd,token,MSG_REGISTRA_UTENTE);
+                break;
+            case 'm':
+                //invio al server la richiesta della matrice
+                Send_Message(comm_fd,"matrice",MSG_MATRICE);
+                break;
+            case 'p':
+                //tokenizzo la stringa per ottenere la parla inserita dall'utente
+                token = strtok(NULL,"\n");
+                //controllo che il token contenga qualcosa 
+                if (token == NULL || token[0] == '\n'){
+                    //se il token è vuoto la parola è automaticamente sbagliata, quindi la considero come parola lunga 3 minuscola con il \n
+                    Send_Message(comm_fd,"lol\n",MSG_PAROLA);
+                }else{
+                    //rendo maiuscola la stringa
+                    Caps_Lock(token);
+                    //invio al server la parola
+                    Send_Message(comm_fd,token,MSG_PAROLA);
+                }
+                break;
+            case 'f':
+                //comunico al server che l'utente si sta disconnettendo
+                Send_Message(comm_fd,"fine",MSG_CHIUSURA_CONNESSIONE);
+                return NULL;
+            default:
+                if (strcmp(input,"score\n")==0){
+                    Send_Message(comm_fd,"punti",MSG_PUNTEGGIO);
+                    break;
+                }
+                //stampa di default
+                writef(retvalue,"comando non disponibile, digitare aiuto per una lista dettagliata\n");
+                break;
+        }
+        free(input);
+    }  
+    return NULL;
+}
