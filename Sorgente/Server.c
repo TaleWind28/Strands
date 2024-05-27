@@ -71,6 +71,7 @@ int PORT;
 int game_on = 0,ready = 0,game_starting,client_attivi = 0; 
 int server_fd,client_fd[MAX_NUM_CLIENTS];
 time_t start_time,end_time;
+pthread_t jester,scorer;
 //
 
 char* tempo(int max_dur){
@@ -78,7 +79,7 @@ char* tempo(int max_dur){
     double elapsed = difftime(end_time,start_time);
     double remaining = max_dur-elapsed; //+ 3;  
     char* mess = malloc(256);
-    sprintf(mess,"tempo restante:%f\n",remaining);
+    sprintf(mess,"%.0f\n",remaining);
     return mess;
 }
 
@@ -87,23 +88,31 @@ void gestore_segnale(int signum) {
   int retvalue;
   if (signum == SIGINT){
     //aggiustare perchè se si disconnettono a caso scoppia
-    for(int i =0;i<client_attivi;i++){
-        Send_Message(client_fd[i],"chiusura dovuta a sigint",MSG_CHIUSURA_CONNESSIONE);
+    if(client_attivi>0){
+        printf("client attivi %d\n",client_attivi);
+        for(int i =0;i<client_attivi;i++){
+            Send_Message(client_fd[i],"chiusura dovuta a sigint",MSG_CHIUSURA_CONNESSIONE);
+        }
     }
+    pthread_cancel(jester);
+    pthread_cancel(scorer);
     SYSC(retvalue,shutdown(server_fd,SHUT_RDWR),"nello shutdown"); 
     SYSC(retvalue,close(server_fd),"chiusura dovuta a SIGINT");
-    //write(1,"\nterminazione dovuta a SIGINT\n",31);
+    write(1,"terminazione dovuta a SIGINT\n",30);
+
     exit(EXIT_SUCCESS);
   }
   if (signum == SIGALRM) {
     write(1, "ricevuto segnale SIGALRM\n", 25);
+    char* time_string;
     switch(game_on){
         case 0:
             start_time = end_time; 
             //durata partita
             char* matrice = Stringify_Matrix(matrice_di_gioco);
             alarm(DURATA_PARTITA);
-            char* time_string = tempo(DURATA_PARTITA);
+            time_string = tempo(DURATA_PARTITA);
+            
             for(int i =0;i<client_attivi;i++){
                 Send_Message(client_fd[i],matrice,MSG_MATRICE);
                 Send_Message(client_fd[i],time_string,MSG_TEMPO_PARTITA);
@@ -125,6 +134,10 @@ void gestore_segnale(int signum) {
                 SYST(retvalue,pthread_kill(handler,SIGUSR1),"nell'avviso di mandare il punteggio allo scorer");
                 temp = temp->next;
             }
+            time_string = tempo(DURATA_PAUSA);
+            for(int i =0;i<client_attivi;i++){
+                Send_Message(client_fd[i],time_string,MSG_TEMPO_ATTESA);
+            }
             printf("game off\n");
         }
     }
@@ -138,8 +151,6 @@ void gestore_segnale(int signum) {
 int main(int argc, char* argv[]){
     /*DICHIARAZIONE VARIABILI*/
     int retvalue;
-    pthread_t jester,scorer;
-
     //inizializzo la maschera per i segnali
     Init_SIGMASK();
     /*INIZIALIZZO I PARAMETRI PASSATI DA RIGA DI COMANDO, COMPRESI QUELLI OPZIONALI*/
@@ -150,14 +161,14 @@ int main(int argc, char* argv[]){
     Dizionario = create_node();
     //carico il dizionario in memoria
     Load_Dictionary(Dizionario,parametri_server.file_dizionario);
-    
-    //Print_Trie(Dizionario,buffer,0);
+    char buffer[280000];
+    Print_Trie(Dizionario,buffer,0);
 
     //debug
-    // int l = search_Trie("CIAO",Dizionario);
-    // char mess[buff_size];
-    // sprintf(mess,"%d\n",l);
-    // writef(retvalue,mess);
+    int l = search_Trie("CIAO",Dizionario);
+    char mess[buff_size];
+    sprintf(mess,"%d\n",l);
+    writef(retvalue,mess);
     
     /*INIZIALIZZO LA MATRICE DI GIOCO*/
     matrice_di_gioco = Create_Matrix(NUM_ROWS,NUM_COLUMNS);
@@ -182,9 +193,6 @@ int main(int argc, char* argv[]){
         }
         //break;
     }
-
-    /*ASPETTO LA TERMINAZIONE DEL THREAD*/
-    SYST(retvalue,pthread_join(jester,NULL),"nell'attesa del jester");
     return 0;
 }
 //
@@ -345,6 +353,9 @@ void* Thread_Handler(void* args){
     pthread_mutex_unlock(&player_mutex);
 
     while(type != MSG_CHIUSURA_CONNESSIONE){
+        while (game_on !=1 && parole_indovinate !=NULL){
+            WL_Pop(&parole_indovinate);
+        }
         //prendo l'input dell'utente
         input = Receive_Message(client_fd,&type);
         //Gioco con l'utente
@@ -374,11 +385,6 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
     char *matrix,*time_string;
     char*input_cpy = malloc(strlen(input));
     char* mess = malloc(35);
-    if (game_on == 0){
-        while(WL_Size(*already_guessed)>0){
-            WL_Pop(already_guessed);
-        }
-    }
     switch(type){
         case MSG_MATRICE:
             if(game_on !=1){

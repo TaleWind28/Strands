@@ -28,18 +28,19 @@ pthread_t bouncer,merchant;
 Matrix matrice_player;
 
 void gestione_terminazione_errata(int signum) {
-    char type;int retvalue;
-    if (signum == SIGINT){
-        
-    }
+    int retvalue;
     switch (signum){
         case SIGINT:
             //invio un messaggio al server dicendogli che ho avuto un problema
-            Send_Message(client_fd,"Ricevuto_Sigint",MSG_CHIUSURA_CONNESSIONE);
+            //Send_Message(client_fd,"Ricevuto_Sigint",MSG_CHIUSURA_CONNESSIONE);
             //aspetto che mi risponda per evitare di chiiudere troppo presto il file descriptor
-            Receive_Message(client_fd,&type);
+            //Receive_Message(client_fd,&type);
             printf("sigint\n");
             /*chiudo il socket*/
+            pthread_kill(merchant,SIGUSR2);
+           
+            pthread_cancel(bouncer);
+            pthread_join(merchant,NULL);
             SYSC(retvalue,close(client_fd),"chiusura del client");
             exit(EXIT_SUCCESS);
             return;
@@ -47,12 +48,14 @@ void gestione_terminazione_errata(int signum) {
         case SIGUSR1:
             //SYSC(retvalue,close(client_fd),"nella chiusura del client perchè è morto il server");
             writef(retvalue,"Ci scusiamo per il disagio ma il server ha deciso di morire, grazie per aver giocato\n");
-            pthread_cancel(bouncer);
+            //pthread_cancel(bouncer);
             pthread_exit(NULL);
             return;
         case SIGUSR2:
             writef(retvalue,"Grazie per aver giocato\n");
-            //pthread_cancel(merchant);
+            if (pthread_self()==merchant){
+                Send_Message(client_fd,"chiudo",MSG_CHIUSURA_CONNESSIONE);
+            }
             pthread_exit(NULL);
             return;
     }
@@ -159,7 +162,7 @@ void* bounce(void* args){
                 SYST(retvalue,pthread_kill(merchant,SIGUSR1),"nell'avvisare il mercante della chiusura");
                 return NULL;
         }
-        free(answer);
+        //free(answer);
     }
     
     return NULL;
@@ -195,7 +198,6 @@ void* trade(void* args){
                 Send_Message(comm_fd,"matrice",MSG_MATRICE);
                 break;
             case 'p':
-                //writef(retvalue,token);
                 //tokenizzo la stringa per ottenere la parla inserita dall'utente
                 token = strtok(NULL,"\n");
                 //controllo che il token contenga qualcosa 
@@ -224,7 +226,7 @@ void* trade(void* args){
                 writef(retvalue,"comando non disponibile, digitare aiuto per una lista dettagliata\n");
                 break;
         }
-        free(input);
+        //free(input);
     }  
     return NULL;
 }
