@@ -28,12 +28,12 @@ void Send_Message(int comm_fd,char* payload,char type){
     int retvalue;int len = strlen(payload);
     /*COMUNICO LA LUNGHEZZA DEL MESSAGGIO CHE STO MANDANDO*/
     SYSC(retvalue,write(comm_fd,&len,sizeof(int)),"nella scrittura della lunghezza del messaggio");
-    usleep(10);//serve per sincornizzare read e write;
+    //usleep(10);//serve per sincornizzare read e write;
     /*COMUNICO IL TIPO DI MESSAGGIO CHE STO MANDANDO*/
     SYSC(retvalue,write(comm_fd,&type,sizeof(char)),"nella scrittura del tipo di messaggio");
     /*CONTROLLO DI AVERE QUALCOSA DA SCRIVERE SUL PAYLOAD*/
     if (len == 0)return;
-    usleep(10);//sincronizzo read e write
+    //usleep(10);//sincronizzo read e write
     /*MANDO IL PAYLOAD*/
     SYSC(retvalue,write(comm_fd,payload,len),"nella scrittura del payload");
     return;

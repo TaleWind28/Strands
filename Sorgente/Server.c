@@ -112,11 +112,13 @@ void gestore_segnale(int signum) {
             char* matrice = Stringify_Matrix(matrice_di_gioco);
             alarm(DURATA_PARTITA);
             time_string = tempo(DURATA_PARTITA);
-            
+            //free(&matrice_di_gioco);
+  
             for(int i =0;i<client_attivi;i++){
                 Send_Message(client_fd[i],matrice,MSG_MATRICE);
                 Send_Message(client_fd[i],time_string,MSG_TEMPO_PARTITA);
             }
+
             game_on = 1;
             printf("game on\n");
             break;
@@ -134,6 +136,7 @@ void gestore_segnale(int signum) {
                 SYST(retvalue,pthread_kill(handler,SIGUSR1),"nell'avviso di mandare il punteggio allo scorer");
                 temp = temp->next;
             }
+            matrice_di_gioco = Create_Matrix(NUM_ROWS,NUM_COLUMNS);
             time_string = tempo(DURATA_PAUSA);
             for(int i =0;i<client_attivi;i++){
                 Send_Message(client_fd[i],time_string,MSG_TEMPO_ATTESA);

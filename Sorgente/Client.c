@@ -31,22 +31,16 @@ void gestione_terminazione_errata(int signum) {
     int retvalue;
     switch (signum){
         case SIGINT:
-            //invio un messaggio al server dicendogli che ho avuto un problema
-            //Send_Message(client_fd,"Ricevuto_Sigint",MSG_CHIUSURA_CONNESSIONE);
-            //aspetto che mi risponda per evitare di chiiudere troppo presto il file descriptor
-            //Receive_Message(client_fd,&type);
             printf("sigint\n");
-            /*chiudo il socket*/
             pthread_kill(merchant,SIGUSR2);
-           
             pthread_cancel(bouncer);
             pthread_join(merchant,NULL);
             SYSC(retvalue,close(client_fd),"chiusura del client");
+            /*chiudo il socket*/
             exit(EXIT_SUCCESS);
             return;
         
         case SIGUSR1:
-            //SYSC(retvalue,close(client_fd),"nella chiusura del client perchè è morto il server");
             writef(retvalue,"Ci scusiamo per il disagio ma il server ha deciso di morire, grazie per aver giocato\n");
             //pthread_cancel(bouncer);
             pthread_exit(NULL);
@@ -104,6 +98,7 @@ int main(int argc, char* argv[]){
     sigaction(SIGINT,&azione_segnale,NULL);
     sigaction(SIGUSR1,&azione_segnale,NULL);
     sigaction(SIGUSR2,&azione_segnale,NULL);
+
     matrice_player = Create_Matrix(4,4);
     SYST(retvalue,pthread_create(&bouncer,NULL,bounce,&client_fd),"nella creazione del bouncer");
     SYST(retvalue,pthread_create(&merchant,NULL,trade,&client_fd),"nella creazione del mercante");
@@ -162,7 +157,7 @@ void* bounce(void* args){
                 SYST(retvalue,pthread_kill(merchant,SIGUSR1),"nell'avvisare il mercante della chiusura");
                 return NULL;
         }
-        //free(answer);
+        free(answer);
     }
     
     return NULL;
