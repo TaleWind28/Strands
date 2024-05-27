@@ -1,1 +1,6 @@
 .vscode/c_cpp_properties.json
+Header/Communication.h.gch
+Header/macro.h.gch
+Header/Matrix.h.gch
+Header/Queue.h.gch
+Header/Trie.h.gch

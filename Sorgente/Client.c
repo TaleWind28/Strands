@@ -172,9 +172,10 @@ void* trade(void* args){
     while(1){
         SYSC(n_read,read(STDIN_FILENO,input_buffer,buff_size),"nella lettura da stdin");
         char* input = (char*)malloc(n_read+1);
-        char* token = strtok(input," ");
+        
         strncpy(input,input_buffer,n_read);
         input[n_read] = '\0';
+        char* token = strtok(input," ");
         switch(input[0]){
             case 'a':
                 writef(retvalue,HELP_MESSAGE);
@@ -194,6 +195,7 @@ void* trade(void* args){
                 Send_Message(comm_fd,"matrice",MSG_MATRICE);
                 break;
             case 'p':
+                //writef(retvalue,token);
                 //tokenizzo la stringa per ottenere la parla inserita dall'utente
                 token = strtok(NULL,"\n");
                 //controllo che il token contenga qualcosa 
