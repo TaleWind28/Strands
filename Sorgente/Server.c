@@ -68,8 +68,8 @@ pthread_mutex_t player_mutex;
 
 char* HOST;
 int PORT;
-int game_on = 0,ready = 0,game_starting; 
-int server_fd;
+int game_on = 0,ready = 0,game_starting,client_attivi = 0; 
+int server_fd,client_fd[MAX_NUM_CLIENTS];
 time_t start_time,end_time;
 //
 
@@ -86,9 +86,13 @@ char* tempo(int max_dur){
 void gestore_segnale(int signum) {
   int retvalue;
   if (signum == SIGINT){
-    //SYSC(retvalue,shutdown(server_fd,SHUT_RDWR),"nello shutdown"); 
+    //aggiustare perchè se si disconnettono a caso scoppia
+    for(int i =0;i<client_attivi;i++){
+        Send_Message(client_fd[i],"chiusura dovuta a sigint",MSG_CHIUSURA_CONNESSIONE);
+    }
+    SYSC(retvalue,shutdown(server_fd,SHUT_RDWR),"nello shutdown"); 
     SYSC(retvalue,close(server_fd),"chiusura dovuta a SIGINT");
-    write(1,"\nterminazione dovuta a SIGINT\n",31);
+    //write(1,"\nterminazione dovuta a SIGINT\n",31);
     exit(EXIT_SUCCESS);
   }
   if (signum == SIGALRM) {
@@ -97,7 +101,13 @@ void gestore_segnale(int signum) {
         case 0:
             start_time = end_time; 
             //durata partita
+            char* matrice = Stringify_Matrix(matrice_di_gioco);
             alarm(DURATA_PARTITA);
+            char* time_string = tempo(DURATA_PARTITA);
+            for(int i =0;i<client_attivi;i++){
+                Send_Message(client_fd[i],matrice,MSG_MATRICE);
+                Send_Message(client_fd[i],time_string,MSG_TEMPO_PARTITA);
+            }
             game_on = 1;
             printf("game on\n");
             break;
@@ -298,8 +308,6 @@ void* Thread_Handler(void* args){
     
     //accetto solo la registrazione dell'utente
     username = Receive_Message(client_fd,&type);
-
-    writef(retvalue,"io");
     
     //controllo che l'username sia valido
     int exists = WL_Find_Word(Players,username);
@@ -428,7 +436,8 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
             return; 
 
         case MSG_CHIUSURA_CONNESSIONE:
-            Send_Message(comm_fd,"ok",MSG_OK);
+            //Send_Message(comm_fd,"ok",MSG_OK);
+            client_attivi--;
             //non mando niente al client perchè potrebbe non essere più aperto il file descriptor di comunicazione
             return;
         
@@ -460,7 +469,7 @@ void Replace_Special(char* string,char special){
 /*THREAD CHE GESTISCE LA CREAZIONE DEL SERVER E L'ACCETTAZIONE DEI GIOCATORI*/
 void* Gestione_Server(void* args){
     /*dichiarazione variabili*/
-    int retvalue, client_fd[MAX_NUM_CLIENTS];
+    int retvalue;
     pthread_t client_thread[MAX_NUM_CLIENTS];
     //pthread_t acceptance_thread;
     struct sockaddr_in server_address, client_address;
@@ -484,6 +493,7 @@ void* Gestione_Server(void* args){
     for(int i=0;i<MAX_NUM_CLIENTS;i++){
         /*accettazione delle richieste*/
         SYSC(client_fd[i],accept(server_fd,(struct sockaddr*)&client_address,&client_length),"nella accept");
+        client_attivi++;
         /*DISPATCHING DI UN THREAD PER GESTIRE LA TRANSAZIONE*/
         SYST(retvalue,pthread_create(&client_thread[i],NULL,Thread_Handler,&client_fd[i]),"dispatching dei thread");
     }
