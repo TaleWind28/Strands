@@ -4,6 +4,7 @@
 typedef struct w{
     char* word;
     pthread_t handler;
+    int points;
     struct w* next;
 }Word_Node;
 
@@ -15,6 +16,9 @@ void WL_Push(Word_List* wl,char* word);
 
 /*ESTRAGGO L'ELEMENTO IN TESTA ALLA LISTA*/
 char* WL_Pop(Word_List* wl);
+//ripensare
+//prendi il punteggio
+int WL_Retrieve_Score(Word_List wl,char* word);
 
 /*CONTO GLI ELEMENTI DELLA LISTA*/
 int WL_Size(Word_List wl);

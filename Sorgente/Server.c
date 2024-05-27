@@ -47,15 +47,18 @@ enum {
 };
 
 /*THREAD FUNCTIONS*/
-void* Thread_Handler(void* );
+void* Thread_Handler(void* args);
 void* Gestione_Server(void* args);
+void* Fine_Round(void* args);
 
 /*GENERAL FUNCTIONS*/
 void Init_Params(int argc, char*argv[],Parametri* params);
+void Init_SIGMASK();
 void Choose_Action(int client_fd,char type,char* input,Word_List* already_guessed,int* points);
 void Generate_Round();
 void Load_Dictionary(Trie* Dictionary, char* path_to_dict);
 void Replace_Special(char* string,char special);
+
 /*GLOBAL VARIABLES*/
 Parametri parametri_server;
 Word_List Players;
@@ -65,9 +68,10 @@ pthread_mutex_t player_mutex;
 
 char* HOST;
 int PORT;
-int game_on = 0,ready = 0,game_starting; 
-int server_fd;
+int game_on = 0,ready = 0,game_starting,client_attivi = 0; 
+int server_fd,client_fd[MAX_NUM_CLIENTS];
 time_t start_time,end_time;
+pthread_t jester,scorer;
 //
 
 char* tempo(int max_dur){
@@ -75,7 +79,7 @@ char* tempo(int max_dur){
     double elapsed = difftime(end_time,start_time);
     double remaining = max_dur-elapsed; //+ 3;  
     char* mess = malloc(256);
-    sprintf(mess,"tempo restante:%f\n",remaining);
+    sprintf(mess,"%.0f\n",remaining);
     return mess;
 }
 
@@ -83,18 +87,38 @@ char* tempo(int max_dur){
 void gestore_segnale(int signum) {
   int retvalue;
   if (signum == SIGINT){
-    //SYSC(retvalue,shutdown(server_fd,SHUT_RDWR),"nello shutdown"); 
+    //aggiustare perchè se si disconnettono a caso scoppia
+    if(client_attivi>0){
+        printf("client attivi %d\n",client_attivi);
+        for(int i =0;i<client_attivi;i++){
+            Send_Message(client_fd[i],"chiusura dovuta a sigint",MSG_CHIUSURA_CONNESSIONE);
+        }
+    }
+    pthread_cancel(jester);
+    pthread_cancel(scorer);
+    SYSC(retvalue,shutdown(server_fd,SHUT_RDWR),"nello shutdown"); 
     SYSC(retvalue,close(server_fd),"chiusura dovuta a SIGINT");
-    write(1,"\nterminazione dovuta a SIGINT\n",31);
+    write(1,"terminazione dovuta a SIGINT\n",30);
+
     exit(EXIT_SUCCESS);
   }
   if (signum == SIGALRM) {
     write(1, "ricevuto segnale SIGALRM\n", 25);
+    char* time_string;
     switch(game_on){
         case 0:
             start_time = end_time; 
             //durata partita
+            char* matrice = Stringify_Matrix(matrice_di_gioco);
             alarm(DURATA_PARTITA);
+            time_string = tempo(DURATA_PARTITA);
+            //free(&matrice_di_gioco);
+  
+            for(int i =0;i<client_attivi;i++){
+                Send_Message(client_fd[i],matrice,MSG_MATRICE);
+                Send_Message(client_fd[i],time_string,MSG_TEMPO_PARTITA);
+            }
+
             game_on = 1;
             printf("game on\n");
             break;
@@ -105,17 +129,24 @@ void gestore_segnale(int signum) {
             game_starting = 0;
             ready = 0;
             game_on = 0;
-            //dico a tutti i thread di mandare i risultati allo scorerù
+            //dico a tutti i thread di mandare i risultati allo scorer
             Word_List temp = Players;
             for(int i = 0;i<WL_Size(Players);i++){
                 pthread_t handler = WL_Peek_Hanlder(temp);
                 SYST(retvalue,pthread_kill(handler,SIGUSR1),"nell'avviso di mandare il punteggio allo scorer");
                 temp = temp->next;
             }
+            matrice_di_gioco = Create_Matrix(NUM_ROWS,NUM_COLUMNS);
+            time_string = tempo(DURATA_PAUSA);
+            for(int i =0;i<client_attivi;i++){
+                Send_Message(client_fd[i],time_string,MSG_TEMPO_ATTESA);
+            }
             printf("game off\n");
         }
     }
     if (signum == SIGUSR1){
+        //ripensare scorer
+        //int actual_score = WL_Retrieve_Score(Players,);
         printf("mando allo scorer%ld\n",pthread_self());
     }
 }
@@ -123,23 +154,8 @@ void gestore_segnale(int signum) {
 int main(int argc, char* argv[]){
     /*DICHIARAZIONE VARIABILI*/
     int retvalue;
-    pthread_t jester;
-    struct sigaction azione_SIGINT;
-    sigset_t maschera_segnale;
-    sigemptyset(&maschera_segnale);
-    //maschera seganle per SIGINT
-    SYSC(retvalue,sigaddset(&maschera_segnale,SIGINT),"aggiunta SIGINT alla maschera");
-    SYSC(retvalue,sigaddset(&maschera_segnale,SIGALRM),"aggiunta di SIGALARM alla maschera");
-    SYSC(retvalue,sigaddset(&maschera_segnale,SIGUSR1),"aggiunta di SIGUSR1 alla maschera");
-
-    /*IMPOSTO LA SIGACTION*/
-    azione_SIGINT.sa_handler = gestore_segnale;
-    azione_SIGINT.sa_mask = maschera_segnale;
-    azione_SIGINT.sa_flags = SA_RESTART;
-    /*IMPOSTO IL GESTORE*/
-    sigaction(SIGINT,&azione_SIGINT,NULL);
-    sigaction(SIGALRM,&azione_SIGINT,NULL);
-    sigaction(SIGUSR1,&azione_SIGINT,NULL);
+    //inizializzo la maschera per i segnali
+    Init_SIGMASK();
     /*INIZIALIZZO I PARAMETRI PASSATI DA RIGA DI COMANDO, COMPRESI QUELLI OPZIONALI*/
     Init_Params(argc,argv,&parametri_server);
     //inizializzo la lista di giocatori
@@ -148,20 +164,21 @@ int main(int argc, char* argv[]){
     Dizionario = create_node();
     //carico il dizionario in memoria
     Load_Dictionary(Dizionario,parametri_server.file_dizionario);
-    
-    //Print_Trie(Dizionario,buffer,0);
+    char buffer[280000];
+    Print_Trie(Dizionario,buffer,0);
 
     //debug
-    // int l = search_Trie("CIAO",Dizionario);
-    // char mess[buff_size];
-    // sprintf(mess,"%d\n",l);
-    // writef(retvalue,mess);
+    int l = search_Trie("CIAO",Dizionario);
+    char mess[buff_size];
+    sprintf(mess,"%d\n",l);
+    writef(retvalue,mess);
     
     /*INIZIALIZZO LA MATRICE DI GIOCO*/
     matrice_di_gioco = Create_Matrix(NUM_ROWS,NUM_COLUMNS);
     
     /*CREO UN THREAD PER GESTIRE LA CREAZIONE DEL SERVER ED IL DISPATCHING DEI THREAD*/
     SYST(retvalue,pthread_create(&jester,NULL,Gestione_Server,NULL),"nella creazione del giullare");
+    SYST(retvalue,pthread_create(&scorer,NULL,Fine_Round,NULL),"nella creazione dello scorer");
     int offset = 0;
     //int i =0;
     /*SFRUTTO IL SERVER COME DEALER*/
@@ -179,9 +196,6 @@ int main(int argc, char* argv[]){
         }
         //break;
     }
-
-    /*ASPETTO LA TERMINAZIONE DEL THREAD*/
-    SYST(retvalue,pthread_join(jester,NULL),"nell'attesa del jester");
     return 0;
 }
 //
@@ -302,10 +316,13 @@ void* Thread_Handler(void* args){
     /*RECUPERO IL VALORE PASSATO AL THREAD NELLA PTHREAD CREATE*/
     int client_fd = *(int*) args;
     Word_List parole_indovinate = NULL;
+    
     //accetto solo la registrazione dell'utente
     username = Receive_Message(client_fd,&type);
+    
     //controllo che l'username sia valido
     int exists = WL_Find_Word(Players,username);
+    
     while((type != MSG_REGISTRA_UTENTE && type != MSG_CHIUSURA_CONNESSIONE) || exists == 0 || strlen(username)>10){
         free(username);
         if(strlen(username)>10)Send_Message(client_fd,"Username troppo lungo\n",MSG_ERR);
@@ -339,6 +356,9 @@ void* Thread_Handler(void* args){
     pthread_mutex_unlock(&player_mutex);
 
     while(type != MSG_CHIUSURA_CONNESSIONE){
+        while (game_on !=1 && parole_indovinate !=NULL){
+            WL_Pop(&parole_indovinate);
+        }
         //prendo l'input dell'utente
         input = Receive_Message(client_fd,&type);
         //Gioco con l'utente
@@ -425,7 +445,8 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
             return; 
 
         case MSG_CHIUSURA_CONNESSIONE:
-            Send_Message(comm_fd,"ok",MSG_OK);
+            //Send_Message(comm_fd,"ok",MSG_OK);
+            client_attivi--;
             //non mando niente al client perchè potrebbe non essere più aperto il file descriptor di comunicazione
             return;
         
@@ -457,7 +478,7 @@ void Replace_Special(char* string,char special){
 /*THREAD CHE GESTISCE LA CREAZIONE DEL SERVER E L'ACCETTAZIONE DEI GIOCATORI*/
 void* Gestione_Server(void* args){
     /*dichiarazione variabili*/
-    int retvalue, client_fd[MAX_NUM_CLIENTS];
+    int retvalue;
     pthread_t client_thread[MAX_NUM_CLIENTS];
     //pthread_t acceptance_thread;
     struct sockaddr_in server_address, client_address;
@@ -481,6 +502,7 @@ void* Gestione_Server(void* args){
     for(int i=0;i<MAX_NUM_CLIENTS;i++){
         /*accettazione delle richieste*/
         SYSC(client_fd[i],accept(server_fd,(struct sockaddr*)&client_address,&client_length),"nella accept");
+        client_attivi++;
         /*DISPATCHING DI UN THREAD PER GESTIRE LA TRANSAZIONE*/
         SYST(retvalue,pthread_create(&client_thread[i],NULL,Thread_Handler,&client_fd[i]),"dispatching dei thread");
     }
@@ -490,5 +512,30 @@ void* Gestione_Server(void* args){
     }
     /*CHIUSURA DEL SOCKET*/
     SYSC(retvalue,close(server_fd),"chiusura server");
+    return NULL;
+}
+
+void Init_SIGMASK(){
+    int retvalue;
+    struct sigaction azione_SIGINT;
+    sigset_t maschera_segnale;
+    sigemptyset(&maschera_segnale);
+    //maschera seganle per SIGINT
+    SYSC(retvalue,sigaddset(&maschera_segnale,SIGINT),"aggiunta SIGINT alla maschera");
+    SYSC(retvalue,sigaddset(&maschera_segnale,SIGALRM),"aggiunta di SIGALARM alla maschera");
+    SYSC(retvalue,sigaddset(&maschera_segnale,SIGUSR1),"aggiunta di SIGUSR1 alla maschera");
+
+    /*IMPOSTO LA SIGACTION*/
+    azione_SIGINT.sa_handler = gestore_segnale;
+    azione_SIGINT.sa_mask = maschera_segnale;
+    azione_SIGINT.sa_flags = SA_RESTART;
+    /*IMPOSTO IL GESTORE*/
+    sigaction(SIGINT,&azione_SIGINT,NULL);
+    sigaction(SIGALRM,&azione_SIGINT,NULL);
+    sigaction(SIGUSR1,&azione_SIGINT,NULL);
+    return;
+}
+
+void* Fine_Round(void* args){
     return NULL;
 }

@@ -115,7 +115,7 @@ void Load_Matrix(Matrix m, char* path_to_file,char exception,int* offset){
 
  char* File_Read(int fd, char exception, int* offset){
     //18 è la lunghezza massima perchè 16 parole +\n +\0
-    char* buffer= (char*)malloc(17);
+    char* buffer = (char*)malloc(17);
     int retvalue;char carattere;ssize_t n_read;
     /*mi posizioni nell'offset fornito*/
     SYSC(retvalue,lseek(fd,*offset,SEEK_SET),"nel setting dell'offset");
@@ -141,7 +141,6 @@ void Load_Matrix(Matrix m, char* path_to_file,char exception,int* offset){
         //printf("buffer:%s\n",buffer);
     }
     SYSC(*offset,lseek(fd,0,SEEK_CUR),"nella memorizzazione dell'offset");
-    //buffer = strtok(buffer,"\n");
     /*ritorno il buffer*/
     return buffer;
 }
@@ -321,9 +320,6 @@ void Position_List_Push(Position_List* cl,int r, int c){
 
 /*ESTRAGGO L'ELEMENTO IN TESTA ALLA LISTA*/
 void Position_List_Pop(Position_List* pl){
-    //int* popped = (int*)malloc(2*sizeof(int));
-    // popped[0] = (*cl)->row;
-    // popped[1] = (*cl)->col;
     /*creo un nodo temporaneo*/
     Position_Node* temp = *pl;
     /*faccio puntare la testa della lista al prossimo elemento*/
