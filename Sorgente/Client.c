@@ -55,8 +55,6 @@ void gestione_terminazione_errata(int signum) {
     }
 }
 
-int take_action(char* input, int comm_fd);
-
 int main(int argc, char* argv[]){
     struct sigaction azione_segnale;
     sigset_t maschera_segnale;
@@ -138,7 +136,9 @@ void* bounce(void* args){
             case MSG_PUNTI_PAROLA:
                 writef(retvalue,answer);
                 break;
-            
+            case MSG_PUNTEGGIO:
+                writef(retvalue,answer);
+                break;
             case MSG_PUNTI_FINALI:
                 //scorer
                 break;
@@ -157,7 +157,7 @@ void* bounce(void* args){
                 SYST(retvalue,pthread_kill(merchant,SIGUSR1),"nell'avvisare il mercante della chiusura");
                 return NULL;
         }
-        free(answer);
+        //free(answer);
     }
     
     return NULL;

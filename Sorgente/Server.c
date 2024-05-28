@@ -58,6 +58,7 @@ void Choose_Action(int client_fd,char type,char* input,Word_List* already_guesse
 void Generate_Round();
 void Load_Dictionary(Trie* Dictionary, char* path_to_dict);
 void Replace_Special(char* string,char special);
+int Check_Words(char* string,off_t* offset, int file_descriptor);
 
 /*GLOBAL VARIABLES*/
 Parametri parametri_server;
@@ -284,29 +285,49 @@ void Generate_Round(int* offset){
 }
 
 void Load_Dictionary(Trie* Dictionary, char* path_to_dict){
-    int retvalue,dizionario_fd;ssize_t n_read;struct stat file_stat;
-    //invoco la stat per capire le dimensioni del file
-    SYSC(retvalue,stat(path_to_dict,&file_stat),"nella stat del dizionario");
-    //alloco un buffer per fare una sola lettura
-    char* buffer = (char*)malloc(file_stat.st_size+1);
-    SYSC(dizionario_fd,open(path_to_dict,O_RDONLY),"nell'apertura del dizionario");
-    //leggo dal dizionario
-    SYSC(n_read,read(dizionario_fd,buffer,file_stat.st_size),"nella lettura dal dizionario");
-    //controllo di aver letto qualcosa
-    if (n_read == 0)return;
-    //metto l'ultimo elemento del buffer come terminatore nullo
-    buffer[n_read] = '\0';
-    Caps_Lock(buffer);
-    //tokenizzo sul \n
-    char* token = strtok(buffer,"\n");
-    while(token!=NULL){
-        insert_Trie(Dictionary,token);
-        token = strtok(NULL,"\n");
+    int retvalue,dizionario_fd;ssize_t n_read;
+    //alloco un buffer per fare la lettura
+    char buffer[16];
+    // SYSC(dizionario_fd,open(path_to_dict,O_RDONLY),"nell'apertura del dizionario");
+    // //leggo dal dizionario
+    // off_t offset;
+    // SYSC(n_read,read(dizionario_fd,buffer,17),"nella lettura dal dizionario");
+    // SYSC(offset,lseek(dizionario_fd,0,SEEK_CUR),"nel settaggio dell'offset sul dizionario");
+    // writef(retvalue,buffer);
+    // writef(retvalue,"\n");
+    // while(n_read >= 0){
+    //     Caps_Lock(buffer);
+    //     //Check_Words(buffer,&offset,dizionario_fd); 
+    //     //leggo le prossime parole
+    //     SYSC(n_read,read(dizionario_fd,buffer,16),"nella lettura dal dizionario");
+    //     //metto l'ultimo elemento del buffer come terminatore nullo
+        
+    // }
+    // SYSC(retvalue,close(dizionario_fd),"nella chiusura del dizionario");
+    FILE* dict = fopen(path_to_dict,"r");
+    char word[256];
+    while(fscanf(dict,"%s",word)!=EOF){
+        Caps_Lock(word);
+        insert_Trie(Dizionario,word);
     }
-    free(buffer);
-    SYSC(retvalue,close(dizionario_fd),"nella chiusura del dizionario");
-    
     return;
+}
+
+int Check_Words(char* string,off_t* offset, int file_descriptor){
+    //char* stringcpy = strcpy(stringcpy,string);
+    off_t cnt;
+    for(int i = 0;i<strlen(string);i++){
+        if (string[i] == '\n'){
+            char* token = strtok(string,"\n");
+            insert_Trie(Dizionario,token);
+            cnt=0;
+        }
+        cnt++;
+    }
+    if (cnt == 1)return 0;
+    *offset -= cnt;
+    lseek(file_descriptor,*offset,SEEK_SET);
+    return 0;   
 }
 
 /*THREAD CHE GESTISCE UN CLIENT*/
@@ -423,7 +444,7 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
             if(WL_Find_Word(*already_guessed,input)==0){Send_Message(comm_fd,"Parola già inserita, 0 punti\n",MSG_PUNTI_PAROLA);return;}
             
             //controllo lessicale
-            //if(search_Trie(input,Dizionario)==-1){Send_Message(comm_fd,"la parola non esiste in italiano\n",MSG_ERR);return;}
+            if(search_Trie(input,Dizionario)==-1){Send_Message(comm_fd,"la parola non esiste in italiano\n",MSG_ERR);return;}
             
             //inserisco la parola indovinata nella lista
             WL_Push(already_guessed,input);
