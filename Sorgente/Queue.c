@@ -27,6 +27,25 @@ void WL_Push(Word_List* wl,char* word){
     return;
 }
 
+void WL_Push_Thread(Word_List* wl,char* word, int socket_fd){
+    Word_Node* el = (Word_Node*)malloc(sizeof(Word_Node));
+    //alloco spazio per la parola
+    el->word = (char*)malloc(strlen(word)+1);
+    //registro il thread che gestisce l'utente
+    el->handler = pthread_self();
+    //imposto a 0 il punteggio dell'utente
+    el->points = 0;
+    //imposto il scoket di comunicazione
+    el->client_fd = socket_fd;
+    //printf("%s",word);
+    strcpy(el->word,word);
+    /*faccio puntare l'elemento alla testa della lista*/
+    el->next = *wl;
+    /*faccio puntare la testa della lista all'elemento*/
+    *wl= el;
+    return;
+}
+
 /*ESTRAGGO L'ELEMENTO IN TESTA ALLA LISTA*/
 char* WL_Pop(Word_List* wl){
     if (wl == NULL) return "lista vuota";
@@ -76,27 +95,38 @@ int WL_Find_Word(Word_List wl,char* word){
     return WL_Find_Word(wl->next,word);
 }
 
-int WL_Update_Score(Word_List wl,char* word,int new_score){
+int WL_Update_Score(Word_List wl,pthread_t gestore,int new_score){
     //caso base
     if (wl == NULL) return 0;
     //caso base
-    if(wl->word == word){
+    if(wl->handler == gestore){
         wl->points+= new_score;
         return 0;
     }
     //caso ricorsivo
-    return WL_Update_Score(wl->next,word,new_score);
+    return WL_Update_Score(wl->next,gestore,new_score);
 }
 //ripensare
-int WL_Retrieve_Score(Word_List wl,char* word){
+int WL_Retrieve_Score(Word_List wl,pthread_t gestore){
     //caso base
     if (wl == NULL)return -1;
     //caso base
-    if (wl->word == word){
+    if (wl->handler == gestore){
         return wl->points;
     }
     //caso ricorsivo
-    return WL_Retrieve_Score(wl->next,word);
+    return WL_Retrieve_Score(wl->next,gestore);
+}
+
+char* WL_Retrieve_User(Word_List wl,pthread_t gestore){
+    //caso base
+    if (wl == NULL)return "";
+    //caso base
+    if (wl->handler == gestore){
+        return wl->word;
+    }
+    //caso ricorsivo
+    return WL_Retrieve_User(wl->next,gestore);
 }
 
 int WL_Splice(Word_List* wl,char* word){
@@ -134,3 +164,9 @@ int Print_WList(Word_List wl){
     return Print_WList(wl->next);
 }
 
+//prendi il client_fd
+int WL_Retrieve_Socket(Word_List wl,pthread_t gestore){
+    if (wl == NULL)return -1;
+    if(wl->handler == gestore)return wl->client_fd;
+    return WL_Retrieve_Socket(wl->next,gestore);
+}
