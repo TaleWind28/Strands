@@ -96,10 +96,14 @@ void gestore_segnale(int signum) {
   if (signum == SIGINT){
     //aggiustare perchè se si disconnettono a caso scoppia
     printf("client_attivi%d\n",client_attivi);
-    if(client_attivi>0){
-        printf("client attivi %d\n",client_attivi);
-        for(int i =0;i<client_attivi;i++){
-            Send_Message(client_fd[i],"chiusura dovuta a sigint",MSG_CHIUSURA_CONNESSIONE);
+    if (WL_Size(Players)!=0){
+        Word_List temp = Players;
+        for(int i = 0;i<WL_Size(Players);i++){
+            pthread_t handler = WL_Peek_Hanlder(temp);
+            int death_sentence = WL_Retrieve_Socket(Players,handler);
+            Send_Message(death_sentence,"morte al server",MSG_CHIUSURA_CONNESSIONE);
+            //SYST(retvalue,pthread_kill(handler,SIGUSR1),"nell'avviso di mandare il punteggio allo scorer");
+            temp = temp->next;
         }
     }
     pthread_cancel(jester);
@@ -165,6 +169,7 @@ void gestore_segnale(int signum) {
         pthread_mutex_lock(&scorer_mutex);
         WL_Push(&Scoring_List,result);
         pthread_mutex_unlock(&scorer_mutex);
+        WL_Update_Score(Players,pthread_self(),-points);
         score_time = 0;
     }
     if (signum == SIGUSR2){
@@ -398,11 +403,11 @@ void* Thread_Handler(void* args){
     Print_WList(Players);
     //rilascio la mutex
     pthread_mutex_unlock(&player_mutex);
-    char result[buff_size];
+    //char result[buff_size];
     while(type != MSG_CHIUSURA_CONNESSIONE){
         while (game_on !=1 && parole_indovinate !=NULL){
             WL_Pop(&parole_indovinate);
-            points = 0-WL_Retrieve_Score(Players,pthread_self);
+            points = 0-WL_Retrieve_Score(Players,pthread_self());
             WL_Update_Score(Players,pthread_self(),points);
         }
 
@@ -435,6 +440,7 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
     char *matrix,*time_string;
     char*input_cpy = malloc(strlen(input));
     char* mess = malloc(35);
+    int punteggio;
     switch(type){
         case MSG_MATRICE:
             if(game_on !=1){
@@ -499,7 +505,7 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
         
         case MSG_PUNTEGGIO:
             
-            int punteggio = WL_Retrieve_Score(Players,pthread_self());
+            punteggio = WL_Retrieve_Score(Players,pthread_self());
             sprintf(mess,"il tuo punteggio attuale è %d\n",punteggio);
             Send_Message(comm_fd,mess,MSG_PUNTEGGIO);
             free(mess);
@@ -600,6 +606,7 @@ void* scoring(void* args){
     int size = WL_Size(Players);
     giocatore global_score[size];
     //printf("hey\n");
+    memset(classifica,0,strlen(classifica));
     while (1){
         if (cnt == size)break;
         //aspetta che la coda abbia degli elementi da prendere
@@ -630,7 +637,7 @@ void* scoring(void* args){
     for(int i =0;i<cnt;i++){
         sprintf(msg,"user:%s\tpunteggio:%d\t\n",global_score[i].username,global_score[i].points);
         strcat(classifica,msg);
-        printf("%s\n",classifica);
+        //printf("%s\n",classifica);
     }
     int retvalue;
     Word_List temp = Players;
