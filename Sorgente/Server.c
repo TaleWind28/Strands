@@ -67,16 +67,18 @@ int Check_Words(char* string,off_t* offset, int file_descriptor);
 
 /*GLOBAL VARIABLES*/
 Parametri parametri_server;
-Word_List Players,Scoring_List;
+Word_List Scoring_List;
+Player_List Players;
 Matrix matrice_di_gioco;
 Trie* Dizionario;
 pthread_mutex_t player_mutex,scorer_mutex;
+List Client_List;
 
 char* HOST;
 int PORT;
 int game_on = 0,ready = 0,game_starting,client_attivi = 0,score_time = 0; 
 char classifica[2048];
-int server_fd,client_fd[MAX_NUM_CLIENTS];
+int server_fd,client_fd;
 time_t start_time,end_time;
 pthread_t jester,scorer;
 //
@@ -95,20 +97,19 @@ void gestore_segnale(int signum) {
   int retvalue;
   if (signum == SIGINT){
     //aggiustare perchè se si disconnettono a caso scoppia
-    printf("client_attivi%d\n",client_attivi);
-    if (WL_Size(Players)!=0){
-        Word_List temp = Players;
-        for(int i = 0;i<WL_Size(Players);i++){
-            pthread_t handler = WL_Peek_Hanlder(temp);
-            int death_sentence = WL_Retrieve_Socket(Players,handler);
+    printf("client_attivi%d\n",L_Size(Client_List));
+    if (L_Size(Client_List)!=0){
+        List tem = Client_List;
+        int size = L_Size(Client_List);
+        for(int i = 0;i<size;i++){
+            int death_sentence = L_Peek(tem);
             Send_Message(death_sentence,"morte al server",MSG_CHIUSURA_CONNESSIONE);
-            //SYST(retvalue,pthread_kill(handler,SIGUSR1),"nell'avviso di mandare il punteggio allo scorer");
-            temp = temp->next;
+            tem = tem->next;
         }
     }
     pthread_cancel(jester);
     if (score_time == 1)pthread_cancel(scorer);
-    SYSC(retvalue,shutdown(server_fd,SHUT_RDWR),"nello shutdown"); 
+    //SYSC(retvalue,shutdown(server_fd,SHUT_RDWR),"nello shutdown"); 
     SYSC(retvalue,close(server_fd),"chiusura dovuta a SIGINT");
     write(1,"terminazione dovuta a SIGINT\n",30);
 
@@ -125,11 +126,18 @@ void gestore_segnale(int signum) {
             alarm(DURATA_PARTITA);
             time_string = tempo(DURATA_PARTITA);
   
-            for(int i =0;i<client_attivi;i++){
-                Send_Message(client_fd[i],matrice,MSG_MATRICE);
-                Send_Message(client_fd[i],time_string,MSG_TEMPO_PARTITA);
+            // for(int i =0;i<client_attivi;i++){
+            //     
+            //
+            Player_List tempor = Players;
+            for (int i =0;i<Player_Size(Players);i++){
+                pthread_t handler = Player_Peek_Hanlder(tempor);
+                int fd = Player_Retrieve_Socket(Players,handler);
+                Send_Message(fd,matrice,MSG_MATRICE);
+                Send_Message(fd,time_string,MSG_TEMPO_PARTITA);
+                tempor = tempor->next;
             }
-
+            
             game_on = 1;
             printf("game on\n");
             break;
@@ -142,17 +150,22 @@ void gestore_segnale(int signum) {
             game_on = 0;
             score_time = 1;
             //dico a tutti i thread di mandare i risultati allo scorer
-            Word_List temp = Players;
-            for(int i = 0;i<WL_Size(Players);i++){
-                pthread_t handler = WL_Peek_Hanlder(temp);
+            Player_List temp = Players;
+            for(int i = 0;i<Player_Size(Players);i++){
+                pthread_t handler = Player_Peek_Hanlder(temp);
                 SYST(retvalue,pthread_kill(handler,SIGUSR1),"nell'avviso di mandare il punteggio allo scorer");
                 temp = temp->next;
             }
             SYST(retvalue,pthread_create(&scorer,NULL,scoring,NULL),"nella creazione dello scorer");
             matrice_di_gioco = Create_Matrix(NUM_ROWS,NUM_COLUMNS);
             time_string = tempo(DURATA_PAUSA);
-            for(int i =0;i<client_attivi;i++){
-                Send_Message(client_fd[i],time_string,MSG_TEMPO_ATTESA);
+            Player_List tempot = Players;
+            for (int i =0;i<Player_Size(Players);i++){
+                pthread_t handler = Player_Peek_Hanlder(tempot);
+                int fd2 = Player_Retrieve_Socket(Players,handler);
+                //Send_Message(fd2,matrice,MSG_MATRICE);
+                Send_Message(fd2,time_string,MSG_TEMPO_PARTITA);
+                tempot = tempot->next;
             }
             printf("game off\n");
         }
@@ -161,21 +174,21 @@ void gestore_segnale(int signum) {
         char result[13];
         writef(retvalue,"entro\n");
         pthread_mutex_lock(&player_mutex);
-        char* username = WL_Retrieve_User(Players,pthread_self());
-        int points = WL_Retrieve_Score(Players,pthread_self());
+        char* username = Player_Retrieve_User(Players,pthread_self());
+        int points = Player_Retrieve_Score(Players,pthread_self());
         pthread_mutex_unlock(&player_mutex);
         sprintf(result,"%s,%d",username,points);
         writef(retvalue,"score\n");
         pthread_mutex_lock(&scorer_mutex);
         WL_Push(&Scoring_List,result);
         pthread_mutex_unlock(&scorer_mutex);
-        WL_Update_Score(Players,pthread_self(),-points);
+        Player_Update_Score(Players,pthread_self(),-points);
         score_time = 0;
     }
     if (signum == SIGUSR2){
         printf("ciao\n");
         //vai a prendere il client fd in base al gestore
-        int comm_fd = WL_Retrieve_Socket(Players,pthread_self());
+        int comm_fd = Player_Retrieve_Socket(Players,pthread_self());
         Send_Message(comm_fd,classifica,MSG_PUNTI_FINALI);
     }
 }
@@ -216,7 +229,7 @@ int main(int argc, char* argv[]){
             Generate_Round(&offset);
             ready = 1;
         }
-        if (WL_Size(Players)>0 && game_starting == 0){
+        if (Player_Size(Players)>0 && game_starting == 0){
             time(&start_time);
             alarm(DURATA_PAUSA);
             game_starting = 1;
@@ -365,12 +378,12 @@ void* Thread_Handler(void* args){
     /*RECUPERO IL VALORE PASSATO AL THREAD NELLA PTHREAD CREATE*/
     int client_fd = *(int*) args;
     Word_List parole_indovinate = NULL;
-    
+    L_Push(&Client_List,client_fd);
     //accetto solo la registrazione dell'utente
     username = Receive_Message(client_fd,&type);
     
     //controllo che l'username sia valido
-    int exists = WL_Find_Word(Players,username);
+    int exists = Player_Find_Word(Players,username);
     
     while((type != MSG_REGISTRA_UTENTE && type != MSG_CHIUSURA_CONNESSIONE) || exists == 0 || strlen(username)>10){
         free(username);
@@ -378,7 +391,7 @@ void* Thread_Handler(void* args){
         if (exists == 0)Send_Message(client_fd,"Username già presente\n",MSG_ERR);
         else Send_Message(client_fd,"Inserisci il comando registra utente\n",MSG_ERR);
         username = Receive_Message(client_fd,&type);
-        exists = WL_Find_Word(Players,username);
+        exists = Player_Find_Word(Players,username);
     }
     if (type == MSG_CHIUSURA_CONNESSIONE){SYSC(retvalue,close(client_fd),"chiusura client-fake");writef(retvalue,"chiusura player\n");return NULL;}
     Send_Message(client_fd,"Registrazione avvenuta con successo\n",MSG_OK);
@@ -398,17 +411,17 @@ void* Thread_Handler(void* args){
     //aspetto la mutex per evitare race condition
     pthread_mutex_lock(&player_mutex);
     //inserisco player
-    WL_Push_Thread(&Players,username,client_fd);
+    Player_Push_Thread(&Players,username,client_fd);
     //stampa di debug
-    Print_WList(Players);
+    //Print_WList(Players);
     //rilascio la mutex
     pthread_mutex_unlock(&player_mutex);
     //char result[buff_size];
     while(type != MSG_CHIUSURA_CONNESSIONE){
         while (game_on !=1 && parole_indovinate !=NULL){
             WL_Pop(&parole_indovinate);
-            points = 0-WL_Retrieve_Score(Players,pthread_self());
-            WL_Update_Score(Players,pthread_self(),points);
+            points = 0-Player_Retrieve_Score(Players,pthread_self());
+            Player_Update_Score(Players,pthread_self(),points);
         }
 
         //prendo l'input dell'utente
@@ -422,9 +435,9 @@ void* Thread_Handler(void* args){
     pthread_mutex_lock(&player_mutex);
     //writef(retvalue,username);
     //rimuovo il player
-    WL_Splice(&Players,username);
+    Player_Splice(&Players,username);
     //stampa per debug
-    Print_WList(Players);
+    //Print_WList(Players);
     //rilascio la mutex per evitare il deadlock
     pthread_mutex_unlock(&player_mutex); 
 
@@ -441,6 +454,7 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
     char*input_cpy = malloc(strlen(input));
     char* mess = malloc(35);
     int punteggio;
+    int retvalue;
     switch(type){
         case MSG_MATRICE:
             if(game_on !=1){
@@ -483,7 +497,7 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
             //comunico al client che la parola era corretta insieme al punteggio
             char message[buff_size];
             //aumento i punti
-            WL_Update_Score(Players,pthread_self(),strlen(input));
+            Player_Update_Score(Players,pthread_self(),strlen(input));
             //calcolo i punti in base alla lunghezza della stringa
             sprintf(message,"Complimenti la parola che hai inserito vale %ld punti\n",strlen(input));
             //aggiorno il punteggio dell'utente
@@ -499,13 +513,15 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
 
         case MSG_CHIUSURA_CONNESSIONE:
             //Send_Message(comm_fd,"ok",MSG_OK);
-            client_attivi--;
+            printf("splice:%d\n",L_Splice(&Client_List));
+            printf("ammazzato\n");
+            SYSC(retvalue,listen(server_fd,1),"nell'aggiunta di una connessione");
             //non mando niente al client perchè potrebbe non essere più aperto il file descriptor di comunicazione
             return;
         
         case MSG_PUNTEGGIO:
             
-            punteggio = WL_Retrieve_Score(Players,pthread_self());
+            punteggio = Player_Retrieve_Score(Players,pthread_self());
             sprintf(mess,"il tuo punteggio attuale è %d\n",punteggio);
             Send_Message(comm_fd,mess,MSG_PUNTEGGIO);
             free(mess);
@@ -552,21 +568,22 @@ void* Gestione_Server(void* args){
     
     /*predisposizione del listner*/
     SYSC(retvalue,listen(server_fd,MAX_NUM_CLIENTS),"nella listen");
-    
+    int i = 0;
     //accettazione dei client
-    for(int i=0;i<MAX_NUM_CLIENTS;i++){
-        /*accettazione delle richieste*/
-        SYSC(client_fd[i],accept(server_fd,(struct sockaddr*)&client_address,&client_length),"nella accept");
-        client_attivi++;
-        /*DISPATCHING DI UN THREAD PER GESTIRE LA TRANSAZIONE*/
-        SYST(retvalue,pthread_create(&client_thread[i],NULL,Thread_Handler,&client_fd[i]),"dispatching dei thread");
-    }
-    /*ATTESA DELLA FINE DEI DISPATCHER*/
-    for(int i =0;i<MAX_NUM_CLIENTS;i++){
-        SYST(retvalue,pthread_join(client_thread[i],NULL),"nella join dei dispatcher");
-    }
-    /*CHIUSURA DEL SOCKET*/
-    SYSC(retvalue,close(server_fd),"chiusura server");
+        while(1){
+            if (i == MAX_NUM_CLIENTS && L_Size(Client_List) == MAX_NUM_CLIENTS){
+                continue;
+            }
+            if (i ==MAX_NUM_CLIENTS)i = 0; 
+            /*accettazione delle richieste*/
+            SYSC(client_fd,accept(server_fd,(struct sockaddr*)&client_address,&client_length),"nella accept");
+            client_attivi++;
+            
+            /*DISPATCHING DI UN THREAD PER GESTIRE LA TRANSAZIONE*/
+            SYST(retvalue,pthread_create(&client_thread[i],NULL,Thread_Handler,&client_fd),"dispatching dei thread");
+            SYST(retvalue,pthread_detach(client_thread[i]),"nella detach");
+            i++;
+        }
     return NULL;
 }
 
@@ -603,7 +620,7 @@ int compare(const void *a, const void *b) {
 void* scoring(void* args){
     int cnt = 0;
     //int score[MAX_NUM_CLIENTS];
-    int size = WL_Size(Players);
+    int size = Player_Size(Players);
     giocatore global_score[size];
     //printf("hey\n");
     memset(classifica,0,strlen(classifica));
@@ -611,7 +628,7 @@ void* scoring(void* args){
         if (cnt == size)break;
         //aspetta che la coda abbia degli elementi da prendere
         printf("hey\n");
-        Print_WList(Scoring_List);
+        //Print_WList(Scoring_List);
         if (WL_Size(Scoring_List)>0){
             //acquisisce mutex
             pthread_mutex_lock(&scorer_mutex);
@@ -640,9 +657,9 @@ void* scoring(void* args){
         //printf("%s\n",classifica);
     }
     int retvalue;
-    Word_List temp = Players;
-    for(int i = 0;i<WL_Size(Players);i++){
-        pthread_t handler = WL_Peek_Hanlder(temp);
+    Player_List temp = Players;
+    for(int i = 0;i<Player_Size(Players);i++){
+        pthread_t handler = Player_Peek_Hanlder(temp);
         SYST(retvalue,pthread_kill(handler,SIGUSR2),"nell'avviso di mandare il punteggio allo scorer");
         temp = temp->next;
     }
