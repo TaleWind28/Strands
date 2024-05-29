@@ -207,3 +207,73 @@ int Player_Find_Word(Player_List wl,char* word){
     /*chiamata ricorsiva*/
     return Player_Find_Word(wl->next,word);
 }
+
+
+
+/*INSERISCO UN ELEMENTO IN TESTA ALLA LISTA*/
+void L_Push(List* wl,int x){
+    Node* el = (Node*)malloc(sizeof(Node));
+    //alloco spazio per la parola
+    el->val = x;
+    /*faccio puntare l'elemento alla testa della lista*/
+    el->next = *wl;
+    el->thread = pthread_self();
+    /*faccio puntare la testa della lista all'elemento*/
+    *wl= el;
+    return;
+}
+
+
+
+/*ESTRAGGO L'ELEMENTO IN TESTA ALLA LISTA*/
+int L_Pop(List* wl){
+    if (wl == NULL) return -1;
+    /*copio la stringa del nodo in testa per restituirla*/ 
+    int tword = (*wl)->val;
+    /*creo un nodo temporaneo*/
+    Node* temp = *wl;
+    /*faccio puntare la testa della lista al prossimo elemento*/
+    *wl = (*wl)->next;
+    /*dealloco il nodo temporaneo*/
+    free(temp);
+
+    return tword;
+}
+
+/*CONTO GLI ELEMENTI DELLA LISTA*/
+int L_Size(List wl){
+    /*caso base*/
+    if(wl == NULL )return 0;
+    /*chiamata ricorsiva*/
+    return 1+L_Size(wl->next);
+}
+
+/*COMUNICO LA TESTA DELLA LISTA*/
+int L_Peek(List wl){
+    if (wl == NULL) return -1;
+    return wl->val;
+}
+
+int L_Splice(List* wl){
+    if (wl == NULL )return -1;
+    Node* prev = NULL;
+    Node* current = *(wl);
+    pthread_t tid = pthread_self();
+    //controllo se il prossimo nodo è quello che cerco
+    while(current !=NULL &&  tid!= current->thread){
+        prev = current;
+        current = current->next;
+    }
+        if (current != NULL) {
+        // Se è il primo nodo
+            if (prev == NULL) {
+                (*wl) = (*wl)->next;
+            } else {
+                prev->next = current->next;
+            }
+        // Libera la memoria occupata dalla stringa
+        
+        free(current);
+    }
+    return 0;
+}

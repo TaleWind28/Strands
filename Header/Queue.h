@@ -6,6 +6,15 @@ typedef struct w{
     struct w* next;
 }Word_Node;
 
+/*NODE*/
+typedef struct n{
+    int val;
+    pthread_t thread;
+    struct n* next;
+}Node;
+
+typedef Node* List;
+
 typedef struct pl{
     char* word;
     pthread_t handler;
@@ -65,5 +74,12 @@ int Print_WList(Word_List wl);
 int Player_Find_Word(Player_List wl,char* word);
 
 
+int L_Peek(List wl);
 
+int L_Size(List wl);
 
+int L_Pop(List* wl);
+
+void L_Push(List* wl,int x);
+
+int L_Splice(List* wl);
