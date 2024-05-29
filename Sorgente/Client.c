@@ -141,6 +141,8 @@ void* bounce(void* args){
                 break;
             case MSG_PUNTI_FINALI:
                 //scorer
+                writef(retvalue,"classifica finale\n");
+                writef(retvalue,answer);
                 break;
 
             case MSG_ERR:
