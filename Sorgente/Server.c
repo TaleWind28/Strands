@@ -30,7 +30,7 @@
 #define DIZIONARIO "../Text/Dizionario.txt"
 #define MATRICI "../Text/Matrici.txt"
 #define DURATA_PAUSA 20 //20 secondi
-#define DURATA_PARTITA 5//60 secondi
+#define DURATA_PARTITA 120//60 secondi
 
 typedef struct {
     char* matrix_file;
@@ -109,7 +109,7 @@ void gestore_segnale(int signum) {
     }
     pthread_cancel(jester);
     if (score_time == 1)pthread_cancel(scorer);
-    //SYSC(retvalue,shutdown(server_fd,SHUT_RDWR),"nello shutdown"); 
+    SYSC(retvalue,shutdown(server_fd,SHUT_RDWR),"nello shutdown"); 
     SYSC(retvalue,close(server_fd),"chiusura dovuta a SIGINT");
     write(1,"terminazione dovuta a SIGINT\n",30);
 
@@ -172,6 +172,7 @@ void gestore_segnale(int signum) {
     }
     if (signum == SIGUSR1){
         char result[13];
+        writef(retvalue,"Partita Conclusa\n");
         writef(retvalue,"entro\n");
         pthread_mutex_lock(&player_mutex);
         char* username = Player_Retrieve_User(Players,pthread_self());
@@ -526,6 +527,8 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
             Send_Message(comm_fd,mess,MSG_PUNTEGGIO);
             free(mess);
             return ;
+        case MSG_PUNTI_FINALI:
+            Send_Message(comm_fd,classifica,MSG_PUNTI_FINALI);
     }
 }
 
