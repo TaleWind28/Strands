@@ -20,7 +20,9 @@
 
 #define NUM_ROWS 4
 #define NUM_COLUMNS 4
-#define HELP_MESSAGE "Per prima cosa se non lo hai già fatto resgistrati mediante il comando registra_utente seguito dal tuo nome, poi potrai usare i seguenti comandi:\np <parola> \tper indovinare una parola presente nella matrice che vedi a schermo\n matrice\tper visualizzare a schermo la matrice ed il tempo residuo di gioco o di attesa\naiuto\tche ti mostra i comandi a te disponibili\nscore\tche ti mostra il tuo punteggio attuale\nfine\tche ti fa uscire dalla partita in corso\n"
+#define RULES "Nel gioco del paroliere si indovinano parole dalla matrice e vengono assegnati dei punti in base alla lunghezza della parola.\nNella nostra versione si accettano solo parole di lunghezza superiore a 3 e vista la scarsità di parole con la Q nella matrice quest'ultima sarà sempre accompagnata da una U che conterà come lettera successiva, ad esempio la parola QUASI può essere composta in questo modo e vale 5 punti.\n"
+#define WELCOME_MESSAGE "Ciao, benvenuto nel gioco del paroliere ,per prima cosa se non lo hai già fatto resgistrati mediante il comando registra_utente seguito dal tuo nome, per unirti ad una partita in corso o aspettare l'inizio di una nuova.\nDurante la partita potrai usare i seguenti comandi:\np <parola> \tper indovinare una parola presente nella matrice che vedi a schermo\n matrice\tper visualizzare a schermo la matrice ed il tempo residuo di gioco o di attesa\naiuto\tche ti mostra i comandi a te disponibili\nscore\tche ti mostra il tuo punteggio attuale\nfine\tche ti fa uscire dalla partita in corso\n"
+#define HELP_MESSAGE "Puoi utilizzare i seguenti comandi:p <parola> \tper indovinare una parola presente nella matrice che vedi a schermo\nmatrice\tper visualizzare a schermo la matrice ed il tempo residuo di gioco o di attesa\naiuto\tche ti mostra i comandi a te disponibili\nscore\tche ti mostra il tuo punteggio attuale\nfine\tche ti fa uscire dalla partita in corso\n"
 int client_fd;
 void* bounce(void* args);
 void* trade(void* args);
@@ -98,6 +100,8 @@ int main(int argc, char* argv[]){
     sigaction(SIGUSR2,&azione_segnale,NULL);
 
     matrice_player = Create_Matrix(4,4);
+    writef(retvalue,WELCOME_MESSAGE);
+    writef(retvalue,RULES);
     SYST(retvalue,pthread_create(&bouncer,NULL,bounce,&client_fd),"nella creazione del bouncer");
     SYST(retvalue,pthread_create(&merchant,NULL,trade,&client_fd),"nella creazione del mercante");
     //SYST(retvalue,pthread_detach(merchant),"nella detach");
@@ -214,6 +218,9 @@ void* trade(void* args){
                 SYST(retvalue,pthread_kill(bouncer,SIGUSR2),"nell'avviso verso il bouncer della chiusura");
                 SYSC(retvalue,close(client_fd),"nella chiusura del client per scelta utente");
                 return NULL;
+            case 'c':
+                Send_Message(comm_fd,"classifica",MSG_PUNTI_FINALI);
+                break;
             default:
                 if (strcmp(input,"score\n")==0){
                     Send_Message(comm_fd,"punti",MSG_PUNTEGGIO);
