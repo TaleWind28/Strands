@@ -88,7 +88,7 @@ char* tempo(int max_dur){
     double elapsed = difftime(end_time,start_time);
     double remaining = max_dur-elapsed; //+ 3;  
     char* mess = malloc(256);
-    sprintf(mess,"%.0f\n",remaining);
+    sprintf(mess,"%.0f secondi\n",remaining);
     return mess;
 }
 
@@ -467,6 +467,7 @@ void* Thread_Handler(void* args){
 void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed,int* points){
     char *matrix,*time_string;
     char*input_cpy = malloc(strlen(input));
+    char* username;
     char* mess = malloc(35);
     int punteggio;
     //int retvalue;
@@ -528,11 +529,10 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
 
         case MSG_CHIUSURA_CONNESSIONE:
             //Send_Message(comm_fd,"ok",MSG_OK);
+            username = Player_Retrieve_User(Players,pthread_self());
             //fare lock
-            char * username = Player_Retrieve_User(Players,pthread_self());
-            //fare lock;
             pthread_mutex_lock(&player_mutex);
-            printf("%s è morto?:%d\n",username,Player_Splice(&Players,username));
+            Player_Splice(&Players,username);
             pthread_mutex_unlock(&player_mutex);
             L_Splice(&Client_List);
             //togliere lock;
