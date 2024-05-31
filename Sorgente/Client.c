@@ -128,7 +128,7 @@ void* bounce(void* args){
             
             case MSG_TEMPO_ATTESA:
                 //stampo al client la durata residua
-                writef(retvalue,"Durata residua pausa ");
+                //writef(retvalue,"Durata residua pausa ");
                 writef(retvalue,answer);
                 break;
             

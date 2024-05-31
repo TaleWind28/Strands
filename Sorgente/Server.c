@@ -24,7 +24,7 @@
 #include "../Header/Communication.h"
 #include "../Header/Trie.h"
 
-#define MAX_NUM_CLIENTS 32
+#define MAX_NUM_CLIENTS 2
 #define NUM_ROWS 4
 #define NUM_COLUMNS 4
 #define DIZIONARIO "../Text/Dizionario.txt"
@@ -71,7 +71,7 @@ Word_List Scoring_List;
 Player_List Players;
 Matrix matrice_di_gioco;
 Trie* Dizionario;
-pthread_mutex_t player_mutex,scorer_mutex;
+pthread_mutex_t player_mutex,scorer_mutex,client_mutex;
 List Client_List;
 
 char* HOST;
@@ -96,22 +96,31 @@ char* tempo(int max_dur){
 void gestore_segnale(int signum) {
   int retvalue;
   if (signum == SIGINT){
-    //aggiustare perchè se si disconnettono a caso scoppia
-    printf("client_attivi%d\n",L_Size(Client_List));
-    if (L_Size(Client_List)!=0){
-        List tem = Client_List;
-        int size = L_Size(Client_List);
-        for(int i = 0;i<size;i++){
-            int death_sentence = L_Peek(tem);
-            Send_Message(death_sentence,"morte al server",MSG_CHIUSURA_CONNESSIONE);
-            tem = tem->next;
-        }
-    }
     pthread_cancel(jester);
+    pthread_mutex_lock(&client_mutex);
+    //ammazza tutti i thread dei client
+    while(Players!=NULL){
+        pthread_t handler = Player_Peek_Hanlder(Players);
+        pthread_cancel(handler);
+        Player_Pop(&Players);
+
+    }
+    printf("alla fine rimase solo il server");
+    //ammazza tutti i client
+    while (Client_List!=NULL){
+        int death_sentence = L_Pop(&Client_List);
+        Send_Message(death_sentence,"morte al server",MSG_CHIUSURA_CONNESSIONE);
+        writef(retvalue,"ammazzato\n");
+        //Client_List = Client_List->next;
+    }
+    pthread_mutex_unlock(&client_mutex);
+    
     if (score_time == 1)pthread_cancel(scorer);
+    writef(retvalue,"ammazzati tutti\n");
     SYSC(retvalue,shutdown(server_fd,SHUT_RDWR),"nello shutdown"); 
+    writef(retvalue,"ammazzati tutti\n");
     SYSC(retvalue,close(server_fd),"chiusura dovuta a SIGINT");
-    write(1,"terminazione dovuta a SIGINT\n",30);
+    writef(retvalue,"terminazione dovuta a SIGINT\n");
 
     exit(EXIT_SUCCESS);
   }
@@ -125,10 +134,6 @@ void gestore_segnale(int signum) {
             char* matrice = Stringify_Matrix(matrice_di_gioco);
             alarm(DURATA_PARTITA);
             time_string = tempo(DURATA_PARTITA);
-  
-            // for(int i =0;i<client_attivi;i++){
-            //     
-            //
             Player_List tempor = Players;
             for (int i =0;i<Player_Size(Players);i++){
                 pthread_t handler = Player_Peek_Hanlder(tempor);
@@ -163,7 +168,6 @@ void gestore_segnale(int signum) {
             for (int i =0;i<Player_Size(Players);i++){
                 pthread_t handler = Player_Peek_Hanlder(tempot);
                 int fd2 = Player_Retrieve_Socket(Players,handler);
-                //Send_Message(fd2,matrice,MSG_MATRICE);
                 Send_Message(fd2,time_string,MSG_TEMPO_PARTITA);
                 tempot = tempot->next;
             }
@@ -191,6 +195,9 @@ void gestore_segnale(int signum) {
         //vai a prendere il client fd in base al gestore
         int comm_fd = Player_Retrieve_Socket(Players,pthread_self());
         Send_Message(comm_fd,classifica,MSG_PUNTI_FINALI);
+        if (pthread_self() == jester){
+            pthread_exit(NULL);
+        }
     }
 }
 
@@ -211,11 +218,11 @@ int main(int argc, char* argv[]){
     // Print_Trie(Dizionario,buffer,0);
 
     //debug
-    int l = search_Trie("CIAO",Dizionario);
-    char mess[buff_size];
-    sprintf(mess,"%d\n",l);
-    writef(retvalue,mess);
-    
+    // int l = search_Trie("CIAO",Dizionario);
+    // char mess[buff_size];
+    // sprintf(mess,"%d\n",l);
+    // writef(retvalue,mess);
+    writef(retvalue,"server_online\n");
     /*INIZIALIZZO LA MATRICE DI GIOCO*/
     matrice_di_gioco = Create_Matrix(NUM_ROWS,NUM_COLUMNS);
     
@@ -228,6 +235,7 @@ int main(int argc, char* argv[]){
     while(1){
         if (ready == 0){
             Generate_Round(&offset);
+            Print_Matrix(matrice_di_gioco,'?','Q');
             ready = 1;
         }
         if (Player_Size(Players)>0 && game_starting == 0){
@@ -394,7 +402,13 @@ void* Thread_Handler(void* args){
         username = Receive_Message(client_fd,&type);
         exists = Player_Find_Word(Players,username);
     }
-    if (type == MSG_CHIUSURA_CONNESSIONE){SYSC(retvalue,close(client_fd),"chiusura client-fake");writef(retvalue,"chiusura player\n");return NULL;}
+    if (type == MSG_CHIUSURA_CONNESSIONE){
+        writef(retvalue,"chiusura player\n");
+        //lock
+        L_Splice(&Client_List);
+        //printf("cavato:%d\n",cia);
+        return NULL;
+    }
     Send_Message(client_fd,"Registrazione avvenuta con successo\n",MSG_OK);
     char* time_string;
     if (game_on == 1){
@@ -446,7 +460,7 @@ void* Thread_Handler(void* args){
     writef(retvalue,"fine player\n");
     
     /*chiusura del socket*/
-    SYSC(retvalue,close(client_fd),"chiusura client-fake");
+    //SYSC(retvalue,close(client_fd),"chiusura client-fake");
     return NULL;
 }
 
@@ -455,7 +469,7 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
     char*input_cpy = malloc(strlen(input));
     char* mess = malloc(35);
     int punteggio;
-    int retvalue;
+    //int retvalue;
     switch(type){
         case MSG_MATRICE:
             if(game_on !=1){
@@ -514,9 +528,16 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
 
         case MSG_CHIUSURA_CONNESSIONE:
             //Send_Message(comm_fd,"ok",MSG_OK);
-            printf("splice:%d\n",L_Splice(&Client_List));
+            //fare lock
+            char * username = Player_Retrieve_User(Players,pthread_self());
+            //fare lock;
+            pthread_mutex_lock(&player_mutex);
+            printf("%s è morto?:%d\n",username,Player_Splice(&Players,username));
+            pthread_mutex_unlock(&player_mutex);
+            L_Splice(&Client_List);
+            //togliere lock;
             printf("ammazzato\n");
-            SYSC(retvalue,listen(server_fd,1),"nell'aggiunta di una connessione");
+            //SYSC(retvalue,listen(server_fd,1),"nell'aggiunta di una connessione");
             //non mando niente al client perchè potrebbe non essere più aperto il file descriptor di comunicazione
             return;
         
@@ -574,17 +595,17 @@ void* Gestione_Server(void* args){
     int i = 0;
     //accettazione dei client
         while(1){
-            if (i == MAX_NUM_CLIENTS && L_Size(Client_List) == MAX_NUM_CLIENTS){
+            if (L_Size(Client_List) == MAX_NUM_CLIENTS){
                 continue;
             }
-            if (i ==MAX_NUM_CLIENTS)i = 0; 
+            if (i == MAX_NUM_CLIENTS)i = 0; 
             /*accettazione delle richieste*/
             SYSC(client_fd,accept(server_fd,(struct sockaddr*)&client_address,&client_length),"nella accept");
-            client_attivi++;
+            //client_attivi++;
             
             /*DISPATCHING DI UN THREAD PER GESTIRE LA TRANSAZIONE*/
             SYST(retvalue,pthread_create(&client_thread[i],NULL,Thread_Handler,&client_fd),"dispatching dei thread");
-            SYST(retvalue,pthread_detach(client_thread[i]),"nella detach");
+            //SYST(retvalue,pthread_detach(client_thread[i]),"nella detach");
             i++;
         }
     return NULL;
