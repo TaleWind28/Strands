@@ -20,9 +20,6 @@
 
 #define NUM_ROWS 4
 #define NUM_COLUMNS 4
-#define RULES "Nel gioco del paroliere si indovinano parole dalla matrice e vengono assegnati dei punti in base alla lunghezza della parola.\nNella nostra versione si accettano solo parole di lunghezza superiore a 3 e vista la scarsità di parole con la Q nella matrice quest'ultima sarà sempre accompagnata da una U che conterà come lettera successiva, ad esempio la parola QUASI può essere composta in questo modo e vale 5 punti.\n"
-#define WELCOME_MESSAGE "Ciao, benvenuto nel gioco del paroliere ,per prima cosa se non lo hai già fatto resgistrati mediante il comando registra_utente seguito dal tuo nome, per unirti ad una partita in corso o aspettare l'inizio di una nuova.\nDurante la partita potrai usare i seguenti comandi:\np <parola> \tper indovinare una parola presente nella matrice che vedi a schermo\n matrice\tper visualizzare a schermo la matrice ed il tempo residuo di gioco o di attesa\naiuto\tche ti mostra i comandi a te disponibili\nscore\tche ti mostra il tuo punteggio attuale\nfine\tche ti fa uscire dalla partita in corso\n"
-#define HELP_MESSAGE "Puoi utilizzare i seguenti comandi:p <parola> \tper indovinare una parola presente nella matrice che vedi a schermo\nmatrice\tper visualizzare a schermo la matrice ed il tempo residuo di gioco o di attesa\naiuto\tche ti mostra i comandi a te disponibili\nscore\tche ti mostra il tuo punteggio attuale\nfine\tche ti fa uscire dalla partita in corso\n"
 int client_fd;
 void* bounce(void* args);
 void* trade(void* args);
@@ -103,9 +100,7 @@ int main(int argc, char* argv[]){
     sigaction(SIGUSR2,&azione_segnale,NULL);
 
     main_tid = pthread_self();
-    //matrice_player = Create_Matrix(4,4);
-    writef(retvalue,WELCOME_MESSAGE);
-    writef(retvalue,RULES);
+
     SYST(retvalue,pthread_create(&bouncer,NULL,bounce,&client_fd),"nella creazione del bouncer");
     SYST(retvalue,pthread_create(&merchant,NULL,trade,&client_fd),"nella creazione del mercante");
     SYST(retvalue,pthread_join(bouncer,NULL),"attesa del bouncer");    
@@ -160,7 +155,8 @@ void* bounce(void* args){
                 break;
 
             case MSG_CHIUSURA_CONNESSIONE:
-                writef(retvalue,"Chiusura client causa morte del server\n");
+                writef(retvalue,answer);
+                //writef(retvalue,"Chiusura client causa morte del server\n");
                 //mando un SIGUSR1 al thread principale
                 SYST(retvalue,pthread_kill(merchant,SIGUSR1),"nell'avvisare il mercante della chiusura");
                 return NULL;
@@ -176,7 +172,7 @@ void* trade(void* args){
     int comm_fd = *(int*) args;
     int retvalue;ssize_t n_read;
     char input_buffer[buff_size];
-    writef(retvalue,"[PROMPT PAROLIERE] -> ");
+    //writef(retvalue,"[PROMPT PAROLIERE] -> ");
     while(1){
         
         SYSC(n_read,read(STDIN_FILENO,input_buffer,buff_size),"nella lettura da stdin");

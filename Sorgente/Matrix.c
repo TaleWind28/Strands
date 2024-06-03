@@ -78,7 +78,6 @@ void Adjust_String(char* string,char x){
 /*STAMPA LA MATRICE*/
 void Print_Matrix(char* m,int rows, int columns, char special){
     int retvalue;char message[buff_size];
-    int j = 0;
     for(int i =0;i<rows;i++){
         for(int j = 0;j<columns;j++){     
             /*SCRIVO IN UN BUFFER L'ELEMENTO DELLA MATRICE*/

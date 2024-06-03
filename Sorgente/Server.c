@@ -24,7 +24,7 @@
 #include "../Header/Communication.h"
 #include "../Header/Trie.h"
 
-#define MAX_NUM_CLIENTS 2
+#define MAX_NUM_CLIENTS 1
 #define NUM_ROWS 4
 #define NUM_COLUMNS 4
 #define DIZIONARIO "../Text/Dizionario.txt"
@@ -106,13 +106,12 @@ void gestore_segnale(int signum) {
         Player_Pop(&Players);
 
     }
-    printf("alla fine rimase solo il server");
+    printf("alla fine rimase solo il server\n");
     //ammazza tutti i client
     while (Client_List!=NULL){
         int death_sentence = L_Pop(&Client_List);
-        Send_Message(death_sentence,"morte al server",MSG_CHIUSURA_CONNESSIONE);
+        Send_Message(death_sentence,"Ci scusiamo per il disagio ma dobbiamo terminare le attività, Grazie per aver Giocato\n",MSG_CHIUSURA_CONNESSIONE);
         writef(retvalue,"ammazzato\n");
-        //Client_List = Client_List->next;
     }
     pthread_mutex_unlock(&client_mutex);
     
@@ -331,7 +330,6 @@ void Generate_Round(int* offset){
         }
         //termino la stringa
         random_string[(NUM_ROWS*NUM_COLUMNS)+1] ='\0';
-        char message[buff_size];
         //sprintf(message,"%d\n",strlen(random_string));
         //Print_Matrix(random_string,4,4,'?','Q');
         //writef(retvalue,message);
@@ -383,6 +381,16 @@ void* Thread_Handler(void* args){
     int client_fd = *(int*) args;
     Word_List parole_indovinate = NULL;
     L_Push(&Client_List,client_fd);
+    if(L_Size(Client_List)> MAX_NUM_CLIENTS){
+        printf("ciao\n");
+        Send_Message(client_fd,"Ci scusiamo per il disagio ma il server al momento è pieno\n",MSG_CHIUSURA_CONNESSIONE);
+        L_Pop(&Client_List);
+        //close(client_fd);
+        return NULL;
+        //Send_Message(client_fd,"Chiusura",MSG_CHIUSURA_CONNESSIONE);
+    }
+   
+    Send_Message(client_fd,WELCOME_MESSAGE,MSG_OK);
     //accetto solo la registrazione dell'utente
     username = Receive_Message(client_fd,&type);
     
@@ -399,12 +407,15 @@ void* Thread_Handler(void* args){
     }
     if (type == MSG_CHIUSURA_CONNESSIONE){
         writef(retvalue,"chiusura player\n");
-        //lock
+        
+        pthread_mutex_lock(&client_mutex);
         L_Splice(&Client_List);
-        //printf("cavato:%d\n",cia);
+        pthread_mutex_unlock(&client_mutex);
+        
         return NULL;
     }
     Send_Message(client_fd,"Registrazione avvenuta con successo\n",MSG_OK);
+    Send_Message(client_fd,RULES,MSG_OK);
     char* time_string;
     if (game_on == 1){
         //char* matrix_to_send = Stringify_Matrix(matrice_di_gioco);
@@ -460,7 +471,7 @@ void* Thread_Handler(void* args){
 }
 
 void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed,int* points){
-    char *matrix,*time_string;
+    char *time_string;
     char*input_cpy = malloc(strlen(input));
     char* username;
     char* mess = malloc(35);
@@ -590,14 +601,10 @@ void* Gestione_Server(void* args){
     int i = 0;
     //accettazione dei client
         while(1){
-            if (L_Size(Client_List) == MAX_NUM_CLIENTS){
-                continue;
-            }
             if (i == MAX_NUM_CLIENTS)i = 0; 
             /*accettazione delle richieste*/
             SYSC(client_fd,accept(server_fd,(struct sockaddr*)&client_address,&client_length),"nella accept");
             //client_attivi++;
-            
             /*DISPATCHING DI UN THREAD PER GESTIRE LA TRANSAZIONE*/
             SYST(retvalue,pthread_create(&client_thread[i],NULL,Thread_Handler,&client_fd),"dispatching dei thread");
             //SYST(retvalue,pthread_detach(client_thread[i]),"nella detach");
