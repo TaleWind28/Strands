@@ -26,24 +26,27 @@
 int client_fd;
 void* bounce(void* args);
 void* trade(void* args);
-pthread_t bouncer,merchant;
+pthread_t bouncer,merchant,main_tid;
 Matrix matrice_player;
 
 void gestione_terminazione_errata(int signum) {
     int retvalue;
     switch (signum){
         case SIGINT:
-            printf("sigint\n");
-            pthread_kill(merchant,SIGUSR2);
-            pthread_cancel(bouncer);
-            pthread_join(merchant,NULL);
-            SYSC(retvalue,close(client_fd),"chiusura del client");
-            /*chiudo il socket*/
-            exit(EXIT_SUCCESS);
-            return;
-        
+            if(pthread_self()== main_tid){
+                printf("sigint\n");
+                //printf("thread gestore:%ld, main thread%ld",pthread_self(),main_tid);
+                pthread_kill(merchant,SIGUSR2);
+                pthread_cancel(bouncer);
+                pthread_join(merchant,NULL);
+                SYSC(retvalue,close(client_fd),"chiusura del client");
+                /*chiudo il socket*/
+                exit(EXIT_SUCCESS);
+                return;
+            }
+            else return;
         case SIGUSR1:
-            writef(retvalue,"Ci scusiamo per il disagio ma il server ha deciso di morire, grazie per aver giocato\n");
+            //writef(retvalue,"Ci scusiamo per il disagio ma il server ha deciso di morire, grazie per aver giocato\n");
             //pthread_cancel(bouncer);
             pthread_exit(NULL);
             return;
@@ -99,12 +102,12 @@ int main(int argc, char* argv[]){
     sigaction(SIGUSR1,&azione_segnale,NULL);
     sigaction(SIGUSR2,&azione_segnale,NULL);
 
+    main_tid = pthread_self();
     matrice_player = Create_Matrix(4,4);
     writef(retvalue,WELCOME_MESSAGE);
     writef(retvalue,RULES);
     SYST(retvalue,pthread_create(&bouncer,NULL,bounce,&client_fd),"nella creazione del bouncer");
     SYST(retvalue,pthread_create(&merchant,NULL,trade,&client_fd),"nella creazione del mercante");
-    //SYST(retvalue,pthread_detach(merchant),"nella detach");
     SYST(retvalue,pthread_join(bouncer,NULL),"attesa del bouncer");    
     SYST(retvalue,pthread_join(merchant,NULL),"attesa del mercante");
     /*chiudo il socket*/
@@ -128,7 +131,7 @@ void* bounce(void* args){
             
             case MSG_TEMPO_ATTESA:
                 //stampo al client la durata residua
-                //writef(retvalue,"Durata residua pausa ");
+                writef(retvalue,"Durata residua pausa ");
                 writef(retvalue,answer);
                 break;
             
@@ -147,6 +150,7 @@ void* bounce(void* args){
                 //scorer
                 writef(retvalue,"classifica finale\n");
                 writef(retvalue,answer);
+                writef(retvalue,"\n");
                 break;
 
             case MSG_ERR:
@@ -164,6 +168,7 @@ void* bounce(void* args){
                 return NULL;
         }
         //free(answer);
+        writef(retvalue,"[PROMPT PAROLIERE]--> ");
     }
     
     return NULL;
@@ -173,7 +178,9 @@ void* trade(void* args){
     int comm_fd = *(int*) args;
     int retvalue;ssize_t n_read;
     char input_buffer[buff_size];
+    writef(retvalue,"[PROMPT PAROLIERE] -> ");
     while(1){
+        
         SYSC(n_read,read(STDIN_FILENO,input_buffer,buff_size),"nella lettura da stdin");
         char* input = (char*)malloc(n_read+1);
         

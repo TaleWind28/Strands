@@ -10,13 +10,12 @@
 #include "../Header/Queue.h"
 #include "../Header/Communication.h"
 
+
 /*CREA UNA MATRICE DATI IN INPUT IL NUMERO DI RIGHE E COLONNE E LA RITORNO*/
 Matrix Create_Matrix(int rows, int columns){
     /*ALLOCO LA MATRICE CREANDO TANTI ARRAY DI CARATTERI QUANTE RIGHE*/
     char** matrix = (char**)malloc(rows*sizeof(char*));
-    int size = rows*columns;
-    Charmap* map = (Charmap*)malloc(size*sizeof(Charmap));
-    map->size = size;
+    //int size = rows*columns;
     
     /*ITERO SULLE RIGHE E PER OGNI RIGA ALLOCO UNA STRINGA CONTENENTE 1 SOLO CARATTERE*/
     int k = 0;
@@ -24,16 +23,12 @@ Matrix Create_Matrix(int rows, int columns){
     for(int i = 0;i<rows;i++){
         for(int j = 0;j<columns;j++){
             matrix[i] = (char*)malloc(columns*(sizeof(char)));
-            map[k].carattere = '0';
-            map[k].row =(int*)malloc(size*sizeof(int));
-            map[k].column =(int*)malloc(size*sizeof(int));
             k++;
         }
     }
     
-
     /*MEMORIZZO LA MATRICE NELLA STRUTTURA DATI CREATA APPOSITAMENTE PER FACILITARE IL SUO UTILIZZO*/
-    Matrix m = {rows,columns,matrix,rows*columns,map};
+    Matrix m = {rows,columns,matrix,rows*columns};
     /*INVOCO LA FUNZIONE ZEROS PER INIZIALIZZARE LA MATRICE*/
     zeros(m);
 
@@ -157,240 +152,178 @@ void Adjust_String(char* string,char x){
     return;
 }
 
-int Is_Reachable(Matrix m,int* old_pos,int* pos){
+int Is_Reachable(int* old_pos,int* pos){
     if (old_pos[0] == -1) return 0;
     /*stessa riga*/
     if (((old_pos[1]+1 == pos[1]) || (old_pos[1]-1 == pos[1]))&&(old_pos[0] == pos[0])){
-            //printf("riga:%d,colonna:%d\n",old_pos[0],old_pos[1]);
+        printf("STESSA RIGA\n");
+        printf("riga:%d,colonna:%d\n",old_pos[0],old_pos[1]);
         return 0;
     }
     /*sono sulla stessa colonna,altrimenti mi sto muovendo in diagonale*/
     if(((old_pos[0]+1 == pos[0]) || (old_pos[0]-1 == pos[0]))&&(old_pos[1] == pos[1])){
-        //printf("riga:%d,colonna:%d\n",old_pos[0],old_pos[1]);
+        printf("STESSA COLONNA\n");
+        printf("riga:%d,colonna:%d\n",old_pos[0],old_pos[1]);
         return 0;
     }
     /*sono in una posizione illegale*/
     return -1;
 }
 
-/*RIEMPIO LA MAPPATURA DEI CARATTERI DELLA MATRICE*/
-void Build_Charmap(Matrix m){
-    int k = 0;int inserted;
-    /*CICLO SU RIGHE E COLONNE DELLA MATRICE*/
-    for(int i =0;i<m.rows;i++){
-        for(int j = 0;j<m.columns;j++){
-            /*AZZERO LA VARIABILE CHE SEGNALA L'INSERIMENTO*/
-            inserted = 0;
-            /*CONTROLLO SE LA POSIZIONE ATTUALE È VUOTA*/
-            if(m.map[k].carattere == '0'){
-                /*STAMPA DI DEBUG*/
-                //printf("caso 1:carattere:%c\n",m.matrix[i][j]);
-                /*AGGIORNO IL CARATTERE*/
-                m.map[k].carattere = m.matrix[i][j];
-                /*INSERISCO LA POSIZIONE IN RIGHE E COLONNE IN BASE ALL'OCCORRENZA, IN QUESTO CASO È 0 PERCHÈ È LA PRIMA CHE INSERISCO*/
-                m.map[k].row[m.map[k].occorrenza] = i;
-                m.map[k].column[m.map[k].occorrenza] = j;
-                /*AGGIUNGO 1 ALL'OCCORRENZA*/
-                m.map[k].occorrenza=1;;
-                /*RIFERISCO CHE LA POSIZIONE È STATA INSERITA*/
-                inserted = 1;
-            }else{
-                /*CONTROLLO I CARATTERI GIà INSERITI*/
-                for(int k1 = k;k1>=0;k1--){
-                    /*CONTROLLO SE DEVO AUMENTARE L'OCCORRENZA*/
-                    if(m.map[k1].carattere == m.matrix[i][j]){
-                        /*AUMENTO L'OCCORRENZA ED AGGIORNO LE POSIZIONI*/
-                        m.map[k1].row[m.map[k1].occorrenza] = i;
-                        m.map[k1].column[m.map[k1].occorrenza] = j;
-                        m.map[k1].occorrenza++;
-                        inserted = 1;
-                        break;
-                    }
-                }
-            }
-            /*SE NON HO ANCORA TROVATO LA POSIZIONE VUOL DIRE CHE LA PROSSIMA SARà VUOTA*/
-            if(inserted == 0){
-                k++;
-                m.map[k].carattere = m.matrix[i][j];
-                m.map[k].row[m.map[k].occorrenza] = i;
-                m.map[k].column[m.map[k].occorrenza] = j;
-                m.map[k].occorrenza=1;
-            }
-        }
-    }
-    /*INVOCO LA ADJUST_CHARMAP PER RIDURRE L'OCCUPAZIONE DELLA MEMORIA*/
-    m.map = Adjust_Charmap(m.map);
-    /*INVOCO LA PRINT_CHARMAP PER STAMPARE LA MAPPATURA APPENA CREATA*/
-    //Print_CharMap(m);
-    return;
-}
-
-/*TROVA IL CARATTERE IN BASE ALLA MAPPATURA DELLA MATRICE*/
-Charmap Find_Charmap_Element(Matrix m,char x){
-    Charmap pos;
-    for(int i = 0;i<m.size;i++){
-        if (m.map[i].carattere == x){
-            pos.row = (int*)malloc(m.map[i].occorrenza*sizeof(int));
-            pos.column = (int*)malloc(m.map[i].occorrenza*sizeof(int));
-            pos.carattere = m.map[i].carattere;
-            for(int j = 0;j<m.map[i].occorrenza;j++){
-                //printf("indice j:%d\n",j);
-                pos.occorrenza = m.map[i].occorrenza;
-                pos.row[j] = m.map[i].row[j];
-                pos.column[j] = m.map[i].column[j];
-                //printf("%c riga: %d,colonna: %d\n",pos.carattere,pos.row[j],pos.column[j]);
-            }
-            return pos;
-        }
-    }
-    pos.occorrenza = 0; 
-    return pos;
-}
-
-
-
-/*LIBERO LO SPAZIO NON NECESSARIO PRECEDENTEMENTE ALLOCATO*/
-Charmap* Adjust_Charmap(Charmap* map){
-    //int i = 0;
-    for(int i =0;i<map->size;i++){
-        if (map[i].carattere == '0'){
-            map->size = i;
-            break;
-        }
-    }
-    /*DIMINUISCO LA MEMORIA ALLOCATA*/
-    map = realloc(map, map->size *sizeof(Charmap));
-    /*STAMPA PER DEBUGGING*/
-    //Print_CharMap(newmap);   
-    return map;
-}
-
-int Validate(Matrix m, char* word){
-    /*DICHIARO ED INIZIALIZZO LA LISTA*/
-    Position_List l = NULL;
-    /*COSTRUISCO UNA MAPPATURA DI TUTTE LE OCCORRENZE DEL PRIMO CARATTERE NELLA MATRICE*/
-    Charmap start = Find_Charmap_Element(m,word[0]);
-    /*PROVO A COSTRUIRE LA PAROLA SULLA MATRICE*/
-    for(int i = 0;i<start.occorrenza;i++){
-        /*MI ASSICURO CHE LA LISTA SIA VUOTA*/
-        Delete_Position_List(&l);
-        /*INSERISCO L'IESIMA OCCORRENZA DEL PRIMO CARATTERE*/
-        Position_List_Push(&l,start.row[i],start.column[i]);
-        /*PROVO A VALIDARE CON L'IESIMA OCCORRENZA*/
-        Validation_Step(m,&l,word);
-        /*SE */
-        if (Position_List_Size(l)==strlen(word))return 0;
-    }
-    return -1;
-}
-
-void Validation_Step(Matrix m,Position_List* l,char * word){
-    for(int j = 1;j<strlen(word);j++){
-        int next_pos[2];
-        /*MAPPO LE OCCORENZE DEL PROSSIMO CARATTERE*/
-        Charmap found = Find_Charmap_Element(m,word[j]);
-        /*CICLO SU TUTTE LE SUE OCCORRENZE*/
-        for(int i=0;i<found.occorrenza;i++){
-            /*MEMORIZZO LA POSIZONE IN UNA VARIABILE PER CHIAMARE LA FUNZIONE IS_REACHABLE*/
-            next_pos[0] = found.row[i];
-            next_pos[1] = found.column[i];
-            /*controllo che la posizione del carattere sia raggiungibile e che la posizione non sia già presente in lista */
-            if ((Is_Reachable(m,Position_List_Peek(*l),next_pos)==0 ) && (Position_List_Find(*l,next_pos[0],next_pos[1]) != 0)){
-                /*AGGIUNGO IL NUOVO CARATTERE ALLA LISTA*/
-                Position_List_Push(l,next_pos[0],next_pos[1]);
-                break;
-            }
-        }
-    } 
-}
-
+// Position_List Position_List_Build(char* string,int NUM_ROW,int NUM_COL){
+//     Position_List pl = NULL;
+//     int k =0;
+//     for(int i =0;i<NUM_ROW;i++){
+//         for(int j = 0;j<NUM_COL;j++){
+//             Position_List_Push(&pl,string[k],i,j);
+//             k++;
+//         }
+//     }
+//     //Print_Position_List(pl);
+//     return pl;
+// }
 
 
 /*INSERISCO UN ELEMENTO IN TESTA ALLA LISTA*/
-void Position_List_Push(Position_List* cl,int r, int c){
-    Position_Node* el = (Position_Node*)malloc(sizeof(Position_Node));
-    el->row = r;
-    el->col = c;
-    /*faccio puntare l'elemento alla testa della lista*/
-    el->next = *cl;
-    /*faccio puntare la testa della lista all'elemento*/
-    *cl= el;
-    return;
-}
+// void Position_List_Push(Position_List* cl,char x,int r, int c){
+//     Position_Node* el = (Position_Node*)malloc(sizeof(Position_Node));
+//     el->row = r;
+//     el->col = c;
+//     el->used = 0;
+//     el->val = x;
+//     /*faccio puntare l'elemento alla testa della lista*/
+//     el->next = *cl;
+//     /*faccio puntare la testa della lista all'elemento*/
+//     *cl= el;
+//     return;
+// }
 
-/*ESTRAGGO L'ELEMENTO IN TESTA ALLA LISTA*/
-void Position_List_Pop(Position_List* pl){
-    /*creo un nodo temporaneo*/
-    Position_Node* temp = *pl;
-    /*faccio puntare la testa della lista al prossimo elemento*/
-    *pl = (*pl)->next;
-    free(temp);
+// int Is_Composable(Position_List pl, char* string){
+//     int i = 0;
+//     for(;i<strlen(string)-1;i++){
+//         int found=0,skip=0;
+//         int old_max = Find_Max_Occ(pl,string[i]);
+//         int new_max = Find_Max_Occ(pl,string[i+1]);
+//         for(int j=0;j<old_max;j++){
+//             int* old_pos = Find_Pos(pl,string[i],skip);
+//             //printf("old_char:%c\tr:%d,c:%d\n",string[i],old_pos[0],old_pos[1]);
+//             int skip2=0;
+//             for(int k=0;k<new_max;k++){
+//                 int* new_pos = Find_Pos(pl,string[i+1],skip2);
+//                 printf("new_char:%c\tr:%d,c:%d\n",string[i+1],new_pos[0],new_pos[1]);
+//                 if (Is_Reachable(old_pos,new_pos)==0){
+//                     found = 1;
+//                     break;
+//                 }else skip2++;
+//             }
+//             if (found == 1){ printf("TROVATO!:%c\n",string[i+1]);break;}
+//             else{ printf("RITENTA\n");skip++;} 
+//         }
+//         printf("found:%d\ni:%d,strlen:%d\n",found,i,strlen(string)-2);   
+//         if (found == 1 && i == (strlen(string)-2)){
+//             return 0;
+//         }    
 
-    return;
-}
+//     }
+//     //Print_Position_List(pl);
+//     return -1;
+// }
 
-/*CONTO GLI ELEMENTI DELLA LISTA*/
-int Position_List_Size(Position_List cl){
-    if (cl == NULL)return 0;
-    return 1+Position_List_Size(cl->next);
-}
+// int* Find_Pos(Position_List pl, char x, int skip){
+   
+//     if (pl == NULL){
+//         int* arr = (int*)malloc(2*sizeof(int));
+//         arr[0] = -1;
+//         arr[1] = -1;
+//         return arr;
+//     }
+//     //printf("%c %c %d\n",pl->val,x,skip);
+//     if (pl->val == x){
+//         printf("val:%c, pl->val:%c\n",x,pl->val);
+//         if (skip==0){
+//             int* arr = (int*)malloc(2*sizeof(int));
+//             arr[0] = pl->row;
+//             arr[1] = pl->col;
+//             return arr;
+//         }else{
+//             skip--;
+//         }
+//     }
+    
+//     return Find_Pos(pl->next,x,skip);
+// }
 
-/*COMUNICO LA TESTA DELLA LISTA*/
-int* Position_List_Peek(Position_List cl){
-    if (cl == NULL)return 0;
-    int* head = (int*)malloc(2*sizeof(int));
-    head[0] = cl->row;
-    head[1] = cl->col;
-    return head;
-}
+// int Find_Max_Occ(Position_List pl, char x){
+//     if (pl == NULL)return 0;
+//     if (pl->val == x)return 1+Find_Max_Occ(pl->next,x);
+//     else return Find_Max_Occ(pl->next,x);
+// }
 
-/*CERCO UN ELEMENTO ALL'INTERNO DELLA LISTA*/
-int Position_List_Find(Position_List cl, int r, int c){
-    if(cl == NULL)return -1;
-    if(cl->row == r && cl->col == c)return 0;
-    return Position_List_Find(cl->next,r,c);
-}
+// /*ESTRAGGO L'ELEMENTO IN TESTA ALLA LISTA*/
+// void Position_List_Pop(Position_List* pl){
+//     /*creo un nodo temporaneo*/
+//     Position_Node* temp = *pl;
+//     /*faccio puntare la testa della lista al prossimo elemento*/
+//     *pl = (*pl)->next;
+//     free(temp);
 
-/*CANCELLO UNA LISTA*/
-int Delete_Position_List(Position_List* l){
-    if (*l == NULL) return 0;
-    if ((*l)->next == NULL){
-        Position_List_Pop(l);
-        return 0;
-        }
-    Position_Node* temp = *l;
-    *l = (*l)->next;
-    free(temp);
-    return Delete_Position_List(l);
-}
+//     return;
+// }
 
-/*FUNZIONI DI STAMPA*/
+// /*CONTO GLI ELEMENTI DELLA LISTA*/
+// int Position_List_Size(Position_List cl){
+//     if (cl == NULL)return 0;
+//     return 1+Position_List_Size(cl->next);
+// }
 
-/*STAMPO LA LISTA*/
-int Print_Position_List(Position_List cl){
-    if (cl == NULL) return 0;
-    printf("r:%d,c:%d\n",cl->row,cl->col);
-    return Print_Position_List(cl->next);
-}
+// /*COMUNICO LA TESTA DELLA LISTA*/
+// int* Position_List_Peek(Position_List cl){
+//     if (cl == NULL)return 0;
+//     int* head = (int*)malloc(2*sizeof(int));
+//     head[0] = cl->row;
+//     head[1] = cl->col;
+//     return head;
+// }
 
-/*STAMPO IL VALORE DI RITORNO DI FIND_CHARMAP_ELEMENT*/
-void Print_FCE(Charmap position,char carattere){
-    for(int i= 0;i<position.occorrenza;i++){
-        printf("carattere:%c,riga:%d,colonna:%d\n",carattere,position.row[i],position.column[i]); 
-    }
-    return;
-}
+// /*CERCO UN ELEMENTO ALL'INTERNO DELLA LISTA*/
+// int* Position_List_Find(Position_List cl,char x,int skip){
+//     if(cl == NULL){
+//         int * arr = (int*)malloc(2*sizeof(int));
+//         arr[0] = -1;
+//         arr[1] = -1;
+//         return -1;
+//     }
+//     if(cl->val == x && skip == 0){
+//         int * arr = (int*)malloc(2*sizeof(int)); 
+//         arr[0] = cl->row;
+//         arr[1] = cl->col;
+//     }
+//     skip--;
+//     return Position_List_Find(cl->next,x,skip);
+// }
 
-/*STAMPA A SCHERMO LA MAPPATURA DEI CARATTERI DELLA MATRICE*/
-void Print_CharMap(Charmap* map){
-    int retvalue;
-    char message[buff_size];
-    for(int i =0;i<map->size;i++){
-        sprintf(message,"%c:%d\n",map[i].carattere,map[i].occorrenza);
-        writef(retvalue,message);
-    }
-    return;
-}
+// /*CANCELLO UNA LISTA*/
+// int Delete_Position_List(Position_List* l){
+//     if (*l == NULL) return 0;
+//     if ((*l)->next == NULL){
+//         Position_List_Pop(l);
+//         return 0;
+//         }
+//     Position_Node* temp = *l;
+//     *l = (*l)->next;
+//     free(temp);
+//     return Delete_Position_List(l);
+// }
+
+// /*FUNZIONI DI STAMPA*/
+
+// /*STAMPO LA LISTA*/
+// int Print_Position_List(Position_List cl){
+//     if (cl == NULL) return 0;
+//     printf("val.%c,r:%d,c:%d\n",cl->val,cl->row,cl->col);
+//     return Print_Position_List(cl->next);
+// }
+
 
 /*STAMPA LA MATRICE*/
 void Print_Matrix(Matrix m,char special, char exception){
@@ -413,4 +346,104 @@ void Print_Matrix(Matrix m,char special, char exception){
     }
 
     return;
+}
+
+
+// Funzione per creare un nuovo grafo
+struct Graph* createGraph(int V) {
+    struct Graph* graph = (struct Graph*) malloc(sizeof(struct Graph));
+    graph->V = V;
+    graph->nodes = (char*) malloc(V * sizeof(char));
+
+    // Allocazione della memoria per la lista di adiacenza
+    graph->adjList = (int**) malloc(V * sizeof(int*));
+    for (int i = 0; i < V; i++) {
+        graph->adjList[i] = (int*) malloc(V * sizeof(int));
+    }
+
+    return graph;
+}
+
+// Funzione per aggiungere un arco al grafo
+void addEdge(struct Graph* graph, int src, int dest) {
+    graph->adjList[src][dest] = 1;
+}
+
+// Funzione per stampare il grafo
+void printGraph(struct Graph* graph) {
+    printf("Grafo:\n");
+    for (int i = 0; i < graph->V; i++) {
+        printf("%c -> ", graph->nodes[i]);
+        for (int j = 0; j < graph->V; j++) {
+            if (graph->adjList[i][j] == 1) {
+                printf("%c ", graph->nodes[j]);
+            }
+        }
+        printf("\n");
+    }
+}
+
+// Funzione di supporto per la DFS
+bool dfsUtil(struct Graph* graph, int current, char* word, int index, bool* visited) {
+    // Se abbiamo raggiunto la fine della parola, la parola è valida
+    if (word[index] == '\0')
+        return true;
+
+    // Segna il nodo corrente come visitato
+    visited[current] = true;
+
+    // Cerca tutti i nodi adiacenti non visitati
+    for (int i = 0; i < graph->V; i++) {
+        if (graph->adjList[current][i] == 1 && !visited[i] && graph->nodes[i] == word[index]) {
+            // Se troviamo una corrispondenza e il nodo non è stato visitato, continuiamo la ricerca
+            if (dfsUtil(graph, i, word, index + 1, visited))
+                return true;
+        }
+    }
+
+    // Se non c'è corrispondenza trovata o non esistono nodi adiacenti non visitati,
+    // marchiamo il nodo corrente come non visitato e restituiamo falso
+    visited[current] = false;
+    return false;
+}
+
+// Funzione per eseguire la DFS per validare una parola sul grafo
+bool dfs(struct Graph* graph, char* word) {
+    // Inizializza un array di booleani per tenere traccia dei nodi visitati
+    bool* visited = (bool*) malloc(graph->V * sizeof(bool));
+    memset(visited, false, graph->V * sizeof(bool));
+
+    // Ciclo sui nodi del grafo
+    for (int i = 0; i < graph->V; i++) {
+        // Se il nodo corrente corrisponde al primo carattere della parola e la DFS restituisce true, la parola è valida
+        if (graph->nodes[i] == word[0] && dfsUtil(graph, i, word, 1, visited))
+            return true;
+    }
+
+    // Se non viene trovata una corrispondenza per il primo carattere della parola, o se la DFS restituisce false, la parola non è valida
+    return false;
+}
+
+struct Graph* Build_Graph(char* matrix,int ROWS, int COLS){
+    int V = strlen(matrix);
+    struct Graph* graph = createGraph(V);
+
+    // Associazione dei nodi con i caratteri della matrice
+    for (int i = 0; i < V; i++) {
+        graph->nodes[i] = matrix[i];
+    }
+
+    // Generazione dei collegamenti basati sulla matrice
+    for (int i = 0; i < ROWS; i++) {
+        for (int j = 0; j < COLS; j++) {
+            int node = i * COLS + j;
+
+            // Aggiungi archi solo se possibile (orizzontale e verticale)
+            if (i > 0) addEdge(graph, node, (i - 1) * COLS + j); // nodo sopra
+            if (i < ROWS - 1) addEdge(graph, node, (i + 1) * COLS + j); // nodo sotto
+            if (j > 0) addEdge(graph, node, i * COLS + (j - 1)); // nodo a sinistra
+            if (j < COLS - 1) addEdge(graph, node, i * COLS + (j + 1)); // nodo a destra
+        }
+    }
+    return graph;
 }

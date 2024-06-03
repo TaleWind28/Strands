@@ -29,8 +29,8 @@
 #define NUM_COLUMNS 4
 #define DIZIONARIO "../Text/Dizionario.txt"
 #define MATRICI "../Text/Matrici.txt"
-#define DURATA_PAUSA 20 //20 secondi
-#define DURATA_PARTITA 120//60 secondi
+#define DURATA_PAUSA 2 //20 secondi
+#define DURATA_PARTITA 60//60 secondi
 
 typedef struct {
     char* matrix_file;
@@ -73,6 +73,7 @@ Matrix matrice_di_gioco;
 Trie* Dizionario;
 pthread_mutex_t player_mutex,scorer_mutex,client_mutex;
 List Client_List;
+struct Graph* graph;
 
 char* HOST;
 int PORT;
@@ -88,7 +89,7 @@ char* tempo(int max_dur){
     double elapsed = difftime(end_time,start_time);
     double remaining = max_dur-elapsed; //+ 3;  
     char* mess = malloc(256);
-    sprintf(mess,"%.0f\n",remaining);
+    sprintf(mess,"%.0f secondi\n",remaining);
     return mess;
 }
 
@@ -225,6 +226,7 @@ int main(int argc, char* argv[]){
     writef(retvalue,"server_online\n");
     /*INIZIALIZZO LA MATRICE DI GIOCO*/
     matrice_di_gioco = Create_Matrix(NUM_ROWS,NUM_COLUMNS);
+
     
     /*CREO UN THREAD PER GESTIRE LA CREAZIONE DEL SERVER ED IL DISPATCHING DEI THREAD*/
     SYST(retvalue,pthread_create(&jester,NULL,Gestione_Server,NULL),"nella creazione del giullare");
@@ -237,6 +239,8 @@ int main(int argc, char* argv[]){
             Generate_Round(&offset);
             Print_Matrix(matrice_di_gioco,'?','Q');
             ready = 1;
+            char* prova = Stringify_Matrix(matrice_di_gioco);
+            graph = Build_Graph(prova,4,4);
         }
         if (Player_Size(Players)>0 && game_starting == 0){
             time(&start_time);
@@ -329,31 +333,10 @@ void Generate_Round(int* offset){
     }
     //stampo sul server la matrice/*DEBUG*/
     //Print_Matrix(matrice_di_gioco,'?','Q');
-    //costruisco la mappatura dei caratteri presenti nella matrice
-    Build_Charmap(matrice_di_gioco);
     return;
 }
 
 void Load_Dictionary(Trie* Dictionary, char* path_to_dict){
-    // int retvalue,dizionario_fd;ssize_t n_read;
-    // //alloco un buffer per fare la lettura
-    // char buffer[16];
-    // SYSC(dizionario_fd,open(path_to_dict,O_RDONLY),"nell'apertura del dizionario");
-    // //leggo dal dizionario
-    // off_t offset;
-    // SYSC(n_read,read(dizionario_fd,buffer,17),"nella lettura dal dizionario");
-    // SYSC(offset,lseek(dizionario_fd,0,SEEK_CUR),"nel settaggio dell'offset sul dizionario");
-    // writef(retvalue,buffer);
-    // writef(retvalue,"\n");
-    // while(n_read >= 0){
-    //     Caps_Lock(buffer);
-    //     //Check_Words(buffer,&offset,dizionario_fd); 
-    //     //leggo le prossime parole
-    //     SYSC(n_read,read(dizionario_fd,buffer,16),"nella lettura dal dizionario");
-    //     //metto l'ultimo elemento del buffer come terminatore nullo
-        
-    // }
-    // SYSC(retvalue,close(dizionario_fd),"nella chiusura del dizionario");
     FILE* dict = fopen(path_to_dict,"r");
     char word[256];
     while(fscanf(dict,"%s",word)!=EOF){
@@ -467,6 +450,7 @@ void* Thread_Handler(void* args){
 void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed,int* points){
     char *matrix,*time_string;
     char*input_cpy = malloc(strlen(input));
+    char* username;
     char* mess = malloc(35);
     int punteggio;
     //int retvalue;
@@ -498,9 +482,9 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
             //rimuovo il carattere speciale dalla stringa
             Replace_Special(input_cpy,'Q');
 
-            //controllo se la parola è componibile nella matrice
-            if (Validate(matrice_di_gioco,input_cpy)!=0){Send_Message(comm_fd,"Parola Illegale su questa matrice\n",MSG_ERR);return;}
-            
+            // //controllo se la parola è componibile nella matrice
+            // if (Validate(matrice_di_gioco,input_cpy)!=0){Send_Message(comm_fd,"Parola Illegale su questa matrice\n",MSG_ERR);return;}
+            if (dfs(graph,input_cpy)!=true){Send_Message(comm_fd,"Parola Illegale su questa matrice\n",MSG_ERR);return;}
             //controllo parole già indovinate/*questo costa meno che cercare nel dizionario,però vva fatto in parallelo col pignoler*/
             if(WL_Find_Word(*already_guessed,input)==0){Send_Message(comm_fd,"Parola già inserita, 0 punti\n",MSG_PUNTI_PAROLA);return;}
             
@@ -528,11 +512,10 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
 
         case MSG_CHIUSURA_CONNESSIONE:
             //Send_Message(comm_fd,"ok",MSG_OK);
+            username = Player_Retrieve_User(Players,pthread_self());
             //fare lock
-            char * username = Player_Retrieve_User(Players,pthread_self());
-            //fare lock;
             pthread_mutex_lock(&player_mutex);
-            printf("%s è morto?:%d\n",username,Player_Splice(&Players,username));
+            Player_Splice(&Players,username);
             pthread_mutex_unlock(&player_mutex);
             L_Splice(&Client_List);
             //togliere lock;

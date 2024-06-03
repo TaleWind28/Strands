@@ -1,40 +1,48 @@
 /*STRUTTURE DATI*/
 
-/*STRUTTURA DATI CHE PERMETTE DI CERCARE PIù VELOCEMENTE TUTTE LE OCCORRENZE DI UN CARATTERE NELLA MATRICE*/
-typedef struct{
-    char carattere;
-    int occorrenza; //Size(row)
-    int* row;       //Position_List row
-    int* column;    //Position_List column
-    int size;       //Size(row)
-}Charmap;
-
 /*STRUTTURA DATI CHE SEMPLIFICA IL LAVORO CON LE MATRICI*/
 typedef struct{
     int rows;
     int columns;
     char** matrix;
     int size;
-    Charmap* map;
 }Matrix;
 
 /*NODO DI UNA LISTA CHE MEMORIZZA LE POSIZIONI DELLA MATRICE*/
 typedef struct p{
     int row;
     int col;
+    int used;
+    char val;
     struct p* next;
 }Position_Node;
 
+struct Graph {
+    int V; // Numero di nodi nel grafo
+    char *nodes; // Array di caratteri per le etichette dei nodi
+    int **adjList; // Lista di adiacenza
+};
+
+
+typedef enum {false,true} bool;
+
 typedef Position_Node* Position_List;
 
+struct Graph* Build_Graph(char* matrix,int ROWS, int COLS);
 /*COSTRUZIONE ED INIZIALIZZAZIONE DI STRUTTURE DATI*/
-
+struct Graph* createGraph(int V);
+void addEdge(struct Graph* graph, int src, int dest);
+void printGraph(struct Graph* graph);
+bool dfsUtil(struct Graph* graph, int current, char* word, int index, bool* visited);
+bool dfs(struct Graph* graph, char* word); 
 /*CREA UNA MATRICE DATI IN INPUT IL NUMERO DI RIGHE E COLONNE E LA RITORNO*/
 Matrix Create_Matrix(int rows, int columns);
 
 /*INIZIALIZZA UNA MATRICE DI CARATTERI CON '0'*/
 void zeros(Matrix m);
-
+int Is_Composable(Position_List pl, char* string);
+int* Find_Pos(Position_List pl, char x,int skip);
+int Find_Max_Occ(Position_List pl, char x);
 /*RIEMPIE UNA RIGA DELLA MATRICE*/
 void Fill_Matrix_Row(Matrix m,int row,char* letter);
 
@@ -46,11 +54,7 @@ void Load_Matrix(Matrix m, char* path_to_file,char exception,int* offset);
 
 char* File_Read(int fd, char exception, int*offset);
 
-/*RIEMPIO LA MAPPATURA DEI CARATTERI DELLA MATRICE*/
-void Build_Charmap(Matrix m);
 
-/*LIBERO LA MEMORIA PRECEDENTEMENTE ALLOCATA E CHE NON VIENE USATA*/
-Charmap* Adjust_Charmap(Charmap* map);
 
 
 /*OPERAZIONI SULLE STRUTTURE DATI DEFINITE PRECEDENTEMENTE*/
@@ -59,24 +63,16 @@ Charmap* Adjust_Charmap(Charmap* map);
 char* Stringify_Matrix(Matrix m);
 
 /*CONTROLLO SE UN ELEMENTO È RAGGIUNGIBILE*/
-int Is_Reachable(Matrix m,int* old_pos,int* pos);
-
-/*TROVA UN ELEMENTO DELLA MATRICE IN BASE ALLA MAPPATURA*/
-Charmap Find_Charmap_Element(Matrix m,char x);
-
-/*CONVALIDA UNA PAROLA IN BASE ALLA MATRICE*/
-int Validate(Matrix m, char* word);
-
-/*STEP PER CONVALIDARE LE PAROLE*/
-void Validation_Step(Matrix m,Position_List* l,char * word);
+int Is_Reachable(int* old_pos,int* pos);
 
 /*RIMOVERE UN CARATTERE DA UNA STRINGA*/
 void Adjust_String(char* string,char x);
 
 /*COMPOSABLE LIST*/
+Position_List Position_List_Build(char* string,int NUM_ROW,int NUM_COL);
 
 /*INSERISCO UN ELEMENTO IN TESTA ALLA LISTA*/
-void Position_List_Push(Position_List* pl,int r, int c);
+void Position_List_Push(Position_List* pl,char x,int r, int c);
 
 /*ESTRAGGO L'ELEMENTO IN TESTA ALLA LISTA*/
 void Position_List_Pop(Position_List* pl);
@@ -100,9 +96,3 @@ int Delete_Position_List(Position_List* l);
 
 /*STAMPA LA MATRICE*/
 void Print_Matrix(Matrix m,char special, char exception);
-
-/*STAMPA A SCHERMO UNA MAPPATURA DI CARATTERI*/
-void Print_CharMap(Charmap* m);
-
-/*STAMPO IL VALORE DI RITORNO DI FIND_CHARMAP_ELEMENT*/
-void Print_FCE(Charmap position,char carattere);
