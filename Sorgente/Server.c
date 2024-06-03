@@ -72,6 +72,7 @@ Player_List Players;
 char* matrice_di_gioco;
 Trie* Dizionario;
 pthread_mutex_t player_mutex,scorer_mutex,client_mutex;
+
 List Client_List;
 struct Graph* graph;
 
@@ -212,22 +213,15 @@ int main(int argc, char* argv[]){
     Players = NULL;
     //inizializzo il dizionario
     Dizionario = create_node();
-    //inizializzo la stringa su cui riceverò la matrice
+    /*INIZIALIZZO LA MATRICE DI GIOCO*/
     matrice_di_gioco =(char*)malloc(16*sizeof(char)); 
     //carico il dizionario in memoria
     Load_Dictionary(Dizionario,parametri_server.file_dizionario);
-    // char buffer[280000];
-    // Print_Trie(Dizionario,buffer,0);
-
-    //debug
-    // int l = search_Trie("CIAO",Dizionario);
-    // char mess[buff_size];
-    // sprintf(mess,"%d\n",l);
-    // writef(retvalue,mess);
     writef(retvalue,"server_online\n");
-    /*INIZIALIZZO LA MATRICE DI GIOCO*/
-    //matrice_di_gioco = Create_Matrix(NUM_ROWS,NUM_COLUMNS);
-
+    
+    SYST(retvalue,pthread_mutex_init(&player_mutex,NULL),"nell'inizializzazione della player mutex");
+    SYST(retvalue,pthread_mutex_init(&client_mutex,NULL),"nell'inizializzazione della client mutex");
+    SYST(retvalue,pthread_mutex_init(&scorer_mutex,NULL),"nell'inizializzazione della scorer mutex");
     
     /*CREO UN THREAD PER GESTIRE LA CREAZIONE DEL SERVER ED IL DISPATCHING DEI THREAD*/
     SYST(retvalue,pthread_create(&jester,NULL,Gestione_Server,NULL),"nella creazione del giullare");
@@ -380,15 +374,18 @@ void* Thread_Handler(void* args){
     /*RECUPERO IL VALORE PASSATO AL THREAD NELLA PTHREAD CREATE*/
     int client_fd = *(int*) args;
     Word_List parole_indovinate = NULL;
+    pthread_mutex_lock(&client_mutex);
     L_Push(&Client_List,client_fd);
     if(L_Size(Client_List)> MAX_NUM_CLIENTS){
         printf("ciao\n");
         Send_Message(client_fd,"Ci scusiamo per il disagio ma il server al momento è pieno\n",MSG_CHIUSURA_CONNESSIONE);
         L_Pop(&Client_List);
+        pthread_mutex_unlock(&client_mutex);
         //close(client_fd);
         return NULL;
         //Send_Message(client_fd,"Chiusura",MSG_CHIUSURA_CONNESSIONE);
     }
+    pthread_mutex_unlock(&client_mutex);
    
     Send_Message(client_fd,WELCOME_MESSAGE,MSG_OK);
     //accetto solo la registrazione dell'utente

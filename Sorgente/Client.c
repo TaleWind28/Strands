@@ -32,7 +32,6 @@ void gestione_terminazione_errata(int signum) {
         case SIGINT:
             if(pthread_self()== main_tid){
                 printf("sigint\n");
-                //printf("thread gestore:%ld, main thread%ld",pthread_self(),main_tid);
                 pthread_kill(merchant,SIGUSR2);
                 pthread_cancel(bouncer);
                 pthread_join(merchant,NULL);
@@ -43,7 +42,6 @@ void gestione_terminazione_errata(int signum) {
             }
             else return;
         case SIGUSR1:
-            //writef(retvalue,"Ci scusiamo per il disagio ma il server ha deciso di morire, grazie per aver giocato\n");
             //pthread_cancel(bouncer);
             pthread_exit(NULL);
             return;
@@ -172,7 +170,6 @@ void* trade(void* args){
     int comm_fd = *(int*) args;
     int retvalue;ssize_t n_read;
     char input_buffer[buff_size];
-    //writef(retvalue,"[PROMPT PAROLIERE] -> ");
     while(1){
         
         SYSC(n_read,read(STDIN_FILENO,input_buffer,buff_size),"nella lettura da stdin");
@@ -181,56 +178,57 @@ void* trade(void* args){
         strncpy(input,input_buffer,n_read);
         input[n_read] = '\0';
         char* token = strtok(input," ");
-        switch(input[0]){
-            case 'a':
-                writef(retvalue,HELP_MESSAGE);
-                break;
-            case 'r': 
-                token = strtok(NULL,"\n");
-                if (token == NULL || token[0] == '\n'){
-                    writef(retvalue,"nome utente non valido\n");
-                    break;
-                }
-                //invio al server il messaggio con le credenziali per la registrazione
-                Send_Message(comm_fd,token,MSG_REGISTRA_UTENTE);
-                break;
-            case 'm':
-                //invio al server la richiesta della matrice
-                Send_Message(comm_fd,"matrice",MSG_MATRICE);
-                break;
-            case 'p':
-                //tokenizzo la stringa per ottenere la parla inserita dall'utente
-                token = strtok(NULL,"\n");
-                //controllo che il token contenga qualcosa 
-                if (token == NULL || token[0] == '\n'){
-                    //se il token è vuoto la parola è automaticamente sbagliata, quindi la considero come parola lunga 3 minuscola con il \n
-                    Send_Message(comm_fd,"lol\n",MSG_PAROLA);
-                }else{
-                    //rendo maiuscola la stringa
-                    Caps_Lock(token);
-                    //invio al server la parola
-                    Send_Message(comm_fd,token,MSG_PAROLA);
-                }
-                break;
-            case 'f':
-                //comunico al server che l'utente si sta disconnettendo
-                Send_Message(comm_fd,"fine",MSG_CHIUSURA_CONNESSIONE);
-                SYST(retvalue,pthread_kill(bouncer,SIGUSR2),"nell'avviso verso il bouncer della chiusura");
-                SYSC(retvalue,close(client_fd),"nella chiusura del client per scelta utente");
-                return NULL;
-            case 'c':
-                Send_Message(comm_fd,"classifica",MSG_PUNTI_FINALI);
-                break;
-            default:
-                if (strcmp(input,"score\n")==0){
-                    Send_Message(comm_fd,"punti",MSG_PUNTEGGIO);
-                    break;
-                }
-                //stampa di default
-                writef(retvalue,"comando non disponibile, digitare aiuto per una lista dettagliata\n");
-                break;
+        if (strcmp(token,"aiuto")==0){
+            writef(retvalue,HELP_MESSAGE);
+            continue;
         }
-        //free(input);
+        if (strcmp(token,"registra_utente")==0){
+            token = strtok(NULL,"\n");
+            if (token == NULL || token[0] == '\n'){
+                writef(retvalue,"nome utente non valido\n");
+                continue;
+            }
+            //invio al server il messaggio con le credenziali per la registrazione
+            Send_Message(comm_fd,token,MSG_REGISTRA_UTENTE);
+        }
+        if (strcmp(token,"matrice")==0){
+            //invio al server la richiesta della matrice
+            Send_Message(comm_fd,"matrice",MSG_MATRICE);
+            continue;
+        }
+        if (strcmp(token,"p")==0){
+            //tokenizzo la stringa per ottenere la parla inserita dall'utente
+            token = strtok(NULL,"\n");
+            //controllo che il token contenga qualcosa 
+            if (token == NULL || token[0] == '\n'){
+                //se il token è vuoto la parola è automaticamente sbagliata, quindi la considero come parola lunga 3 minuscola con il \n
+                Send_Message(comm_fd,"lol\n",MSG_PAROLA);
+            }else{
+                //rendo maiuscola la stringa
+                Caps_Lock(token);
+                //invio al server la parola
+                Send_Message(comm_fd,token,MSG_PAROLA);
+            }
+            continue;
+        }
+        if (strcmp(token,"fine")==0){
+            //comunico al server che l'utente si sta disconnettendo
+            Send_Message(comm_fd,"fine",MSG_CHIUSURA_CONNESSIONE);
+            SYST(retvalue,pthread_kill(bouncer,SIGUSR2),"nell'avviso verso il bouncer della chiusura");
+            SYSC(retvalue,close(client_fd),"nella chiusura del client per scelta utente");
+            return NULL;
+        }
+        if (strcmp(token,"score")==0){
+            Send_Message(comm_fd,"punti",MSG_PUNTEGGIO);
+            continue;
+        }
+        if (strcmp(token,"classifica")==0){
+            Send_Message(comm_fd,"classifica",MSG_PUNTI_FINALI);
+            continue;
+        }
+        //stampa di default
+        writef(retvalue,"comando non disponibile, digitare aiuto per una lista dettagliata\n");
+        writef(retvalue,"[PROMPT PAROLIERE]-->");
     }  
     return NULL;
 }

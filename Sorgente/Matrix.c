@@ -78,17 +78,22 @@ void Adjust_String(char* string,char x){
 /*STAMPA LA MATRICE*/
 void Print_Matrix(char* m,int rows, int columns, char special){
     int retvalue;char message[buff_size];
+    printf("matrice:%s\n",m);
+    printf("m[6]:%c,special:%c\n",m[6],special);
     for(int i =0;i<rows;i++){
         for(int j = 0;j<columns;j++){     
             /*SCRIVO IN UN BUFFER L'ELEMENTO DELLA MATRICE*/
-            if (m[i] == special){
-                sprintf(message,"%c%c\t",'Q','U');
+            //printf("%c\n",m[i]);
+            if (m[i*columns+j] == special){
+                //sprintf(message,"%c%c\t",'Q','U');
+                writef(retvalue,"QU\t");
+            
             }
             else{
                 sprintf(message,"%c\t", m[i*columns+j]);
+                writef(retvalue,message);
             }
-            /*SCRIVO A VIDEO L'ELEMENTO*/
-            writef(retvalue,message);
+            
         }
         writef(retvalue,"\n");
     }
