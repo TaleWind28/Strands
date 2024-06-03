@@ -69,7 +69,7 @@ int Check_Words(char* string,off_t* offset, int file_descriptor);
 Parametri parametri_server;
 Word_List Scoring_List;
 Player_List Players;
-Matrix matrice_di_gioco;
+char* matrice_di_gioco;
 Trie* Dizionario;
 pthread_mutex_t player_mutex,scorer_mutex,client_mutex;
 List Client_List;
@@ -132,14 +132,14 @@ void gestore_segnale(int signum) {
         case 0:
             start_time = end_time; 
             //durata partita
-            char* matrice = Stringify_Matrix(matrice_di_gioco);
+            //char* matrice = Stringify_Matrix(matrice_di_gioco);
             alarm(DURATA_PARTITA);
             time_string = tempo(DURATA_PARTITA);
             Player_List tempor = Players;
             for (int i =0;i<Player_Size(Players);i++){
                 pthread_t handler = Player_Peek_Hanlder(tempor);
                 int fd = Player_Retrieve_Socket(Players,handler);
-                Send_Message(fd,matrice,MSG_MATRICE);
+                Send_Message(fd,matrice_di_gioco,MSG_MATRICE);
                 Send_Message(fd,time_string,MSG_TEMPO_PARTITA);
                 tempor = tempor->next;
             }
@@ -151,6 +151,7 @@ void gestore_segnale(int signum) {
             time(&end_time);
             start_time = end_time;
             //durata pausa
+            free(matrice_di_gioco);
             game_starting = 0;
             ready = 0;
             game_on = 0;
@@ -163,7 +164,6 @@ void gestore_segnale(int signum) {
                 temp = temp->next;
             }
             SYST(retvalue,pthread_create(&scorer,NULL,scoring,NULL),"nella creazione dello scorer");
-            matrice_di_gioco = Create_Matrix(NUM_ROWS,NUM_COLUMNS);
             time_string = tempo(DURATA_PAUSA);
             Player_List tempot = Players;
             for (int i =0;i<Player_Size(Players);i++){
@@ -213,6 +213,8 @@ int main(int argc, char* argv[]){
     Players = NULL;
     //inizializzo il dizionario
     Dizionario = create_node();
+    //inizializzo la stringa su cui riceverò la matrice
+    matrice_di_gioco =(char*)malloc(16*sizeof(char)); 
     //carico il dizionario in memoria
     Load_Dictionary(Dizionario,parametri_server.file_dizionario);
     // char buffer[280000];
@@ -225,7 +227,7 @@ int main(int argc, char* argv[]){
     // writef(retvalue,mess);
     writef(retvalue,"server_online\n");
     /*INIZIALIZZO LA MATRICE DI GIOCO*/
-    matrice_di_gioco = Create_Matrix(NUM_ROWS,NUM_COLUMNS);
+    //matrice_di_gioco = Create_Matrix(NUM_ROWS,NUM_COLUMNS);
 
     
     /*CREO UN THREAD PER GESTIRE LA CREAZIONE DEL SERVER ED IL DISPATCHING DEI THREAD*/
@@ -237,10 +239,11 @@ int main(int argc, char* argv[]){
     while(1){
         if (ready == 0){
             Generate_Round(&offset);
-            Print_Matrix(matrice_di_gioco,'?','Q');
+            writef(retvalue,matrice_di_gioco);
+            printf("\n");
+            Print_Matrix(matrice_di_gioco,NUM_ROWS,NUM_COLUMNS,'?');
             ready = 1;
-            char* prova = Stringify_Matrix(matrice_di_gioco);
-            graph = Build_Graph(prova,4,4);
+            graph = Build_Graph(matrice_di_gioco,4,4);
         }
         if (Player_Size(Players)>0 && game_starting == 0){
             time(&start_time);
@@ -263,7 +266,6 @@ void Init_Params(int argc, char*argv[],Parametri* params){
         {"durata", required_argument, 0, OPT_DURATA},
         {"seed", required_argument, 0, OPT_SEED},
         {"diz", required_argument, 0, OPT_DIZ},
-        //{0, 0, 0, 0}
     };
 
     /*CONTROLLO PARAMETRI RIGA DI COMANDO*/
@@ -308,14 +310,16 @@ void Init_Params(int argc, char*argv[],Parametri* params){
 }
 
 void Generate_Round(int* offset){
+    int retvalue;
     //controllo se l'utente mi ha passato il file contenente le matrici
-    char random_string[matrice_di_gioco.size+1];
+    char random_string[(NUM_ROWS*NUM_COLUMNS)+1];
     if(parametri_server.matrix_file != NULL){
         //leggo dal file in sequenza memorizzando l'offset,e carico la stringa nella matrice
-        Load_Matrix(matrice_di_gioco,parametri_server.matrix_file,'Q',offset);
+        matrice_di_gioco = Load_Matrix(parametri_server.matrix_file,'Q',offset);
+        writef(retvalue,matrice_di_gioco);
     }else{
         //se non ho il file genero casualmente
-        srand(parametri_server.seed);
+        //srand(parametri_server.seed);
         for (int i =0;i<16;i++){
             //genero un carattere random,modulo 26 perchè è 90-65 
             random_string[i] = (char)((rand()%26)+65);
@@ -326,10 +330,18 @@ void Generate_Round(int* offset){
             }
         }
         //termino la stringa
-        random_string[matrice_di_gioco.size+1] ='\0';
+        random_string[(NUM_ROWS*NUM_COLUMNS)+1] ='\0';
+        char message[buff_size];
+        //sprintf(message,"%d\n",strlen(random_string));
+        //Print_Matrix(random_string,4,4,'?','Q');
+        //writef(retvalue,message);
+        //writef(retvalue,random_string);
 
+        printf("esco\n");
         //carico la stringa nella matrice
-        Fill_Matrix(matrice_di_gioco,random_string);
+        strncpy(matrice_di_gioco,random_string,16);
+        printf("esco\n");
+        //Fill_Matrix(matrice_di_gioco,random_string);
     }
     //stampo sul server la matrice/*DEBUG*/
     //Print_Matrix(matrice_di_gioco,'?','Q');
@@ -395,8 +407,8 @@ void* Thread_Handler(void* args){
     Send_Message(client_fd,"Registrazione avvenuta con successo\n",MSG_OK);
     char* time_string;
     if (game_on == 1){
-        char* matrix_to_send = Stringify_Matrix(matrice_di_gioco);
-        Send_Message(client_fd,matrix_to_send,MSG_MATRICE);
+        //char* matrix_to_send = Stringify_Matrix(matrice_di_gioco);
+        Send_Message(client_fd,matrice_di_gioco,MSG_MATRICE);
         time_string = tempo(DURATA_PARTITA);
         Send_Message(client_fd,time_string,MSG_TEMPO_PARTITA);
     }else{
@@ -463,10 +475,10 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
             }//invia il tempo di attesa
             printf("game_on:%d\n",game_on);
             //trasforma la matrice in una stringa
-            matrix = Stringify_Matrix(matrice_di_gioco);
+            //matrix = Stringify_Matrix(matrice_di_gioco);
             //invio la matrice sotto forma di stringa al client
-            Send_Message(comm_fd,matrix,MSG_MATRICE);
-            free(matrix);
+            Send_Message(comm_fd,matrice_di_gioco,MSG_MATRICE);
+            //free(matrix);
             time_string = tempo(DURATA_PARTITA);
             Send_Message(comm_fd,time_string,MSG_TEMPO_PARTITA);
             return;

@@ -27,7 +27,7 @@ int client_fd;
 void* bounce(void* args);
 void* trade(void* args);
 pthread_t bouncer,merchant,main_tid;
-Matrix matrice_player;
+char* matrice;
 
 void gestione_terminazione_errata(int signum) {
     int retvalue;
@@ -103,7 +103,7 @@ int main(int argc, char* argv[]){
     sigaction(SIGUSR2,&azione_segnale,NULL);
 
     main_tid = pthread_self();
-    matrice_player = Create_Matrix(4,4);
+    //matrice_player = Create_Matrix(4,4);
     writef(retvalue,WELCOME_MESSAGE);
     writef(retvalue,RULES);
     SYST(retvalue,pthread_create(&bouncer,NULL,bounce,&client_fd),"nella creazione del bouncer");
@@ -122,11 +122,9 @@ void* bounce(void* args){
         char* answer = Receive_Message(comm_fd,&type);
         switch(type){
             case MSG_MATRICE:
-                //riempio la matrice
-                Fill_Matrix(matrice_player,answer);
                 //stampo la matrice al client
                 writef(retvalue,"Questa è la matrice su cui giocare\n");
-                Print_Matrix(matrice_player,'?','Q');
+                Print_Matrix(answer,4,4,'?');
                 break;
             
             case MSG_TEMPO_ATTESA:
@@ -197,7 +195,6 @@ void* trade(void* args){
                     writef(retvalue,"nome utente non valido\n");
                     break;
                 }
-                //writef(retvalue,token)
                 //invio al server il messaggio con le credenziali per la registrazione
                 Send_Message(comm_fd,token,MSG_REGISTRA_UTENTE);
                 break;
