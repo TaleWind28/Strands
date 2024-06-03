@@ -17,10 +17,24 @@ typedef struct p{
     struct p* next;
 }Position_Node;
 
+struct Graph {
+    int V; // Numero di nodi nel grafo
+    char *nodes; // Array di caratteri per le etichette dei nodi
+    int **adjList; // Lista di adiacenza
+};
+
+
+typedef enum {false,true} bool;
+
 typedef Position_Node* Position_List;
 
+struct Graph* Build_Graph(char* matrix,int ROWS, int COLS);
 /*COSTRUZIONE ED INIZIALIZZAZIONE DI STRUTTURE DATI*/
-
+struct Graph* createGraph(int V);
+void addEdge(struct Graph* graph, int src, int dest);
+void printGraph(struct Graph* graph);
+bool dfsUtil(struct Graph* graph, int current, char* word, int index, bool* visited);
+bool dfs(struct Graph* graph, char* word); 
 /*CREA UNA MATRICE DATI IN INPUT IL NUMERO DI RIGHE E COLONNE E LA RITORNO*/
 Matrix Create_Matrix(int rows, int columns);
 

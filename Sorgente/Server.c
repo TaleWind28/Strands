@@ -69,11 +69,11 @@ int Check_Words(char* string,off_t* offset, int file_descriptor);
 Parametri parametri_server;
 Word_List Scoring_List;
 Player_List Players;
-Position_List pl;
 Matrix matrice_di_gioco;
 Trie* Dizionario;
 pthread_mutex_t player_mutex,scorer_mutex,client_mutex;
 List Client_List;
+struct Graph* graph;
 
 char* HOST;
 int PORT;
@@ -240,9 +240,7 @@ int main(int argc, char* argv[]){
             Print_Matrix(matrice_di_gioco,'?','Q');
             ready = 1;
             char* prova = Stringify_Matrix(matrice_di_gioco);
-            pl = Position_List_Build(prova,NUM_ROWS,NUM_COLUMNS);
-            // printf("composable:%d\n",Is_Composable(pl,matrice_di_gioco,"CASE"));
-            // printf("composable:%d\n",Is_Composable(pl,matrice_di_gioco,"E?O"));
+            graph = Build_Graph(prova,4,4);
         }
         if (Player_Size(Players)>0 && game_starting == 0){
             time(&start_time);
@@ -486,7 +484,7 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
 
             // //controllo se la parola è componibile nella matrice
             // if (Validate(matrice_di_gioco,input_cpy)!=0){Send_Message(comm_fd,"Parola Illegale su questa matrice\n",MSG_ERR);return;}
-            if (Is_Composable(pl,input_cpy)!=0){Send_Message(comm_fd,"Parola Illegale su questa matrice\n",MSG_ERR);return;}
+            if (dfs(graph,input_cpy)!=true){Send_Message(comm_fd,"Parola Illegale su questa matrice\n",MSG_ERR);return;}
             //controllo parole già indovinate/*questo costa meno che cercare nel dizionario,però vva fatto in parallelo col pignoler*/
             if(WL_Find_Word(*already_guessed,input)==0){Send_Message(comm_fd,"Parola già inserita, 0 punti\n",MSG_PUNTI_PAROLA);return;}
             
