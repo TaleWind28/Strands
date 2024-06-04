@@ -24,13 +24,13 @@
 #include "../Header/Communication.h"
 #include "../Header/Trie.h"
 
-#define MAX_NUM_CLIENTS 1
+#define MAX_NUM_CLIENTS 2
 #define NUM_ROWS 4
 #define NUM_COLUMNS 4
 #define DIZIONARIO "../Text/Dizionario.txt"
 #define MATRICI "../Text/Matrici.txt"
 #define DURATA_PAUSA 2 //20 secondi
-#define DURATA_PARTITA 60//60 secondi
+#define DURATA_PARTITA 5//60 secondi
 
 typedef struct {
     char* matrix_file;
@@ -74,7 +74,7 @@ Trie* Dizionario;
 pthread_mutex_t player_mutex,scorer_mutex,client_mutex;
 
 List Client_List;
-struct Graph* graph;
+Graph* matrice_grafo;
 
 char* HOST;
 int PORT;
@@ -133,8 +133,8 @@ void gestore_segnale(int signum) {
             start_time = end_time; 
             //durata partita
             //char* matrice = Stringify_Matrix(matrice_di_gioco);
-            alarm(DURATA_PARTITA);
-            time_string = tempo(DURATA_PARTITA);
+            alarm(parametri_server.durata_partita);
+            time_string = tempo(parametri_server.durata_partita);
             Player_List tempor = Players;
             for (int i =0;i<Player_Size(Players);i++){
                 pthread_t handler = Player_Peek_Hanlder(tempor);
@@ -192,7 +192,7 @@ void gestore_segnale(int signum) {
         score_time = 0;
     }
     if (signum == SIGUSR2){
-        printf("ciao\n");
+        //printf("ciao\n");
         //vai a prendere il client fd in base al gestore
         int comm_fd = Player_Retrieve_Socket(Players,pthread_self());
         Send_Message(comm_fd,classifica,MSG_PUNTI_FINALI);
@@ -236,7 +236,7 @@ int main(int argc, char* argv[]){
             printf("\n");
             Print_Matrix(matrice_di_gioco,NUM_ROWS,NUM_COLUMNS,'?');
             ready = 1;
-            graph = Build_Graph(matrice_di_gioco,4,4);
+            matrice_grafo = Build_Graph(matrice_di_gioco,4,4);
         }
         if (Player_Size(Players)>0 && game_starting == 0){
             time(&start_time);
@@ -273,8 +273,9 @@ void Init_Params(int argc, char*argv[],Parametri* params){
     /*valori di defualt in caso non venissero passati*/
     params->file_dizionario = DIZIONARIO;
     params->matrix_file = NULL;
-    params->durata_partita = 10;
+    params->durata_partita = 180;
     params->seed = 0;
+    int seed_given;
     /*SCORRO TUTTI I PARAMETRI OPZIONALI RICEVUTI IN INPUT*/
     while((opt = getopt_long(argc,argv,"",logn_opt,&index))!=-1){
         switch(opt){
@@ -282,10 +283,11 @@ void Init_Params(int argc, char*argv[],Parametri* params){
                 params->matrix_file = optarg;
                 break;
             case OPT_DURATA:
-                params->durata_partita = atoi(optarg);
+                params->durata_partita = atoi(optarg)*60;
                 break;
             case OPT_SEED:
                 params->seed = atoi(optarg);
+                seed_given = 1;
                 break;
             case OPT_DIZ:
                 params->file_dizionario = optarg;
@@ -297,7 +299,10 @@ void Init_Params(int argc, char*argv[],Parametri* params){
             default: printf("argomento superfluo ignorato\n");
         }
     }
-
+    if (seed_given == 1 && params->matrix_file != NULL){
+        perror("inserire soltanto 1 argomento opzionale tra seed e matrici");
+        exit(EXIT_FAILURE);
+    }
     srand(params->seed);
     return;
 }
@@ -312,7 +317,6 @@ void Generate_Round(int* offset){
         writef(retvalue,matrice_di_gioco);
     }else{
         //se non ho il file genero casualmente
-        //srand(parametri_server.seed);
         for (int i =0;i<16;i++){
             //genero un carattere random,modulo 26 perchè è 90-65 
             random_string[i] = (char)((rand()%26)+65);
@@ -324,19 +328,9 @@ void Generate_Round(int* offset){
         }
         //termino la stringa
         random_string[(NUM_ROWS*NUM_COLUMNS)+1] ='\0';
-        //sprintf(message,"%d\n",strlen(random_string));
-        //Print_Matrix(random_string,4,4,'?','Q');
-        //writef(retvalue,message);
-        //writef(retvalue,random_string);
-
-        printf("esco\n");
         //carico la stringa nella matrice
         strncpy(matrice_di_gioco,random_string,16);
-        printf("esco\n");
-        //Fill_Matrix(matrice_di_gioco,random_string);
     }
-    //stampo sul server la matrice/*DEBUG*/
-    //Print_Matrix(matrice_di_gioco,'?','Q');
     return;
 }
 
@@ -417,7 +411,7 @@ void* Thread_Handler(void* args){
     if (game_on == 1){
         //char* matrix_to_send = Stringify_Matrix(matrice_di_gioco);
         Send_Message(client_fd,matrice_di_gioco,MSG_MATRICE);
-        time_string = tempo(DURATA_PARTITA);
+        time_string = tempo(parametri_server.durata_partita);
         Send_Message(client_fd,time_string,MSG_TEMPO_PARTITA);
     }else{
         time(&start_time);
@@ -487,7 +481,7 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
             //invio la matrice sotto forma di stringa al client
             Send_Message(comm_fd,matrice_di_gioco,MSG_MATRICE);
             //free(matrix);
-            time_string = tempo(DURATA_PARTITA);
+            time_string = tempo(parametri_server.durata_partita);
             Send_Message(comm_fd,time_string,MSG_TEMPO_PARTITA);
             return;
 
@@ -504,7 +498,7 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
 
             // //controllo se la parola è componibile nella matrice
             // if (Validate(matrice_di_gioco,input_cpy)!=0){Send_Message(comm_fd,"Parola Illegale su questa matrice\n",MSG_ERR);return;}
-            if (dfs(graph,input_cpy)!=true){Send_Message(comm_fd,"Parola Illegale su questa matrice\n",MSG_ERR);return;}
+            if (dfs(matrice_grafo,input_cpy)!=true){Send_Message(comm_fd,"Parola Illegale su questa matrice\n",MSG_ERR);return;}
             //controllo parole già indovinate/*questo costa meno che cercare nel dizionario,però vva fatto in parallelo col pignoler*/
             if(WL_Find_Word(*already_guessed,input)==0){Send_Message(comm_fd,"Parola già inserita, 0 punti\n",MSG_PUNTI_PAROLA);return;}
             
@@ -650,7 +644,7 @@ void* scoring(void* args){
     while (1){
         if (cnt == size)break;
         //aspetta che la coda abbia degli elementi da prendere
-        printf("hey\n");
+        //printf("hey\n");
         //Print_WList(Scoring_List);
         if (WL_Size(Scoring_List)>0){
             //acquisisce mutex

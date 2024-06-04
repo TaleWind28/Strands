@@ -139,8 +139,13 @@ void* bounce(void* args){
                 break;
             case MSG_PUNTI_FINALI:
                 //scorer
-                writef(retvalue,"classifica finale\n");
-                writef(retvalue,answer);
+                
+                if (strcmp("stringa vuota",answer)==0){
+                    writef(retvalue,"Classifica non ancora disponibile");
+                }else{
+                    writef(retvalue,"classifica finale\n");
+                    writef(retvalue,answer);
+                }
                 writef(retvalue,"\n");
                 break;
 
@@ -154,7 +159,6 @@ void* bounce(void* args){
 
             case MSG_CHIUSURA_CONNESSIONE:
                 writef(retvalue,answer);
-                //writef(retvalue,"Chiusura client causa morte del server\n");
                 //mando un SIGUSR1 al thread principale
                 SYST(retvalue,pthread_kill(merchant,SIGUSR1),"nell'avvisare il mercante della chiusura");
                 return NULL;
@@ -190,8 +194,9 @@ void* trade(void* args){
             }
             //invio al server il messaggio con le credenziali per la registrazione
             Send_Message(comm_fd,token,MSG_REGISTRA_UTENTE);
+            continue;
         }
-        if (strcmp(token,"matrice")==0){
+        if (strcmp(token,"matrice\n")==0){
             //invio al server la richiesta della matrice
             Send_Message(comm_fd,"matrice",MSG_MATRICE);
             continue;
@@ -211,18 +216,18 @@ void* trade(void* args){
             }
             continue;
         }
-        if (strcmp(token,"fine")==0){
+        if (strcmp(token,"fine\n")==0){
             //comunico al server che l'utente si sta disconnettendo
             Send_Message(comm_fd,"fine",MSG_CHIUSURA_CONNESSIONE);
             SYST(retvalue,pthread_kill(bouncer,SIGUSR2),"nell'avviso verso il bouncer della chiusura");
             SYSC(retvalue,close(client_fd),"nella chiusura del client per scelta utente");
             return NULL;
         }
-        if (strcmp(token,"score")==0){
+        if (strcmp(token,"score\n")==0){
             Send_Message(comm_fd,"punti",MSG_PUNTEGGIO);
             continue;
         }
-        if (strcmp(token,"classifica")==0){
+        if (strcmp(token,"classifica\n")==0){
             Send_Message(comm_fd,"classifica",MSG_PUNTI_FINALI);
             continue;
         }

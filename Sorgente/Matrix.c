@@ -45,6 +45,10 @@ char* Load_Matrix(char* path_to_file,char exception,int* offset){
             SYSC(*offset,lseek(fd,0,SEEK_SET),"nel resettare l'offset");
             break;
         }
+        if (carattere == ' '){
+            i--;
+            continue;
+        }
         /*se trovo il \n esco*/
         if (carattere == '\n') break;
         Caps_Lock(&carattere);
@@ -78,14 +82,10 @@ void Adjust_String(char* string,char x){
 /*STAMPA LA MATRICE*/
 void Print_Matrix(char* m,int rows, int columns, char special){
     int retvalue;char message[buff_size];
-    printf("matrice:%s\n",m);
-    printf("m[6]:%c,special:%c\n",m[6],special);
     for(int i =0;i<rows;i++){
         for(int j = 0;j<columns;j++){     
             /*SCRIVO IN UN BUFFER L'ELEMENTO DELLA MATRICE*/
-            //printf("%c\n",m[i]);
             if (m[i*columns+j] == special){
-                //sprintf(message,"%c%c\t",'Q','U');
                 writef(retvalue,"QU\t");
             
             }
@@ -102,41 +102,30 @@ void Print_Matrix(char* m,int rows, int columns, char special){
 }
 
 // Funzione per creare un nuovo grafo
-struct Graph* createGraph(int V) {
-    struct Graph* graph = (struct Graph*) malloc(sizeof(struct Graph));
-    graph->V = V;
-    graph->nodes = (char*) malloc(V * sizeof(char));
+Graph* createGraph(int Vertex) {
+    Graph* graph = (Graph*) malloc(sizeof(Graph));
+    //assegno il numero di vertici
+    graph->V = Vertex;
+    //alloco i nodi che conterranno i caratteri
+    graph->nodes = (char*) malloc(Vertex * sizeof(char));
 
     // Allocazione della memoria per la lista di adiacenza
-    graph->adjList = (int**) malloc(V * sizeof(int*));
-    for (int i = 0; i < V; i++) {
-        graph->adjList[i] = (int*) malloc(V * sizeof(int));
+    graph->adjList = (int**) malloc(Vertex * sizeof(int*));
+    for (int i = 0; i < Vertex; i++) {
+        //alloco per ogni elemento della lista di adiacenza Vertex interi
+        graph->adjList[i] = (int*) malloc(Vertex * sizeof(int));
     }
-
+    //ritorno il grafo cosi creato
     return graph;
 }
 
 // Funzione per aggiungere un arco al grafo
-void addEdge(struct Graph* graph, int src, int dest) {
+void addEdge(Graph* graph, int src, int dest) {
     graph->adjList[src][dest] = 1;
 }
 
-// Funzione per stampare il grafo
-void printGraph(struct Graph* graph) {
-    printf("Grafo:\n");
-    for (int i = 0; i < graph->V; i++) {
-        printf("%c -> ", graph->nodes[i]);
-        for (int j = 0; j < graph->V; j++) {
-            if (graph->adjList[i][j] == 1) {
-                printf("%c ", graph->nodes[j]);
-            }
-        }
-        printf("\n");
-    }
-}
-
 // Funzione di supporto per la DFS
-bool dfsUtil(struct Graph* graph, int current, char* word, int index, bool* visited) {
+bool dfsUtil(Graph* graph, int current, char* word, int index, bool* visited) {
     // Se abbiamo raggiunto la fine della parola, la parola è valida
     if (word[index] == '\0')
         return true;
@@ -160,7 +149,7 @@ bool dfsUtil(struct Graph* graph, int current, char* word, int index, bool* visi
 }
 
 // Funzione per eseguire la DFS per validare una parola sul grafo
-bool dfs(struct Graph* graph, char* word) {
+bool dfs(Graph* graph, char* word) {
     // Inizializza un array di booleani per tenere traccia dei nodi visitati
     bool* visited = (bool*) malloc(graph->V * sizeof(bool));
     memset(visited, false, graph->V * sizeof(bool));
@@ -176,9 +165,9 @@ bool dfs(struct Graph* graph, char* word) {
     return false;
 }
 
-struct Graph* Build_Graph(char* matrix,int ROWS, int COLS){
+Graph* Build_Graph(char* matrix,int row, int column){
     int V = strlen(matrix);
-    struct Graph* graph = createGraph(V);
+    Graph* graph = createGraph(V);
 
     // Associazione dei nodi con i caratteri della matrice
     for (int i = 0; i < V; i++) {
@@ -186,15 +175,24 @@ struct Graph* Build_Graph(char* matrix,int ROWS, int COLS){
     }
 
     // Generazione dei collegamenti basati sulla matrice
-    for (int i = 0; i < ROWS; i++) {
-        for (int j = 0; j < COLS; j++) {
-            int node = i * COLS + j;
-
-            // Aggiungi archi solo se possibile (orizzontale e verticale)
-            if (i > 0) addEdge(graph, node, (i - 1) * COLS + j); // nodo sopra
-            if (i < ROWS - 1) addEdge(graph, node, (i + 1) * COLS + j); // nodo sotto
-            if (j > 0) addEdge(graph, node, i * COLS + (j - 1)); // nodo a sinistra
-            if (j < COLS - 1) addEdge(graph, node, i * COLS + (j + 1)); // nodo a destra
+    for (int i = 0; i < row; i++) {
+        for (int j = 0; j < column; j++) {
+            int node = i * column + j;
+            //nodo superiore
+            if (i > 0){
+                addEdge(graph, node, (i - 1) * column + j); 
+            }
+            //nodo inferiore
+            if (i < row - 1){
+                addEdge(graph, node, (i + 1) * column + j);
+                }
+            //nodo sx
+            if (j > 0){ 
+                addEdge(graph, node, i * column + (j - 1)); // nodo a sinistra
+            }//nodo dx
+            if (j < column - 1){
+                addEdge(graph, node, i * column + (j + 1)); // nodo a destra
+            }
         }
     }
     return graph;
