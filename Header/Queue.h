@@ -6,15 +6,7 @@ typedef struct w{
     struct w* next;
 }Word_Node;
 
-/*NODE*/
-typedef struct n{
-    int val;
-    pthread_t thread;
-    struct n* next;
-}Node;
-
-typedef Node* List;
-
+/*PLAYER_NODE*/
 typedef struct pl{
     char* word;
     pthread_t handler;
@@ -23,14 +15,24 @@ typedef struct pl{
     struct pl* next;
 }Player_Node;
 
+/*NODE*/
+typedef struct n{
+    int val;
+    pthread_t thread;
+    struct n* next;
+}Node;
+
+/*FD_LIST*/
+typedef Node* List;
+
 /*WORD_LIST*/
 typedef Word_Node * Word_List;
 
+/*PLAYER_LIST*/
 typedef Player_Node* Player_List;
 
 
-
-//placeholder per la nuova struttura
+//inserisco un elemento in testa alla lista
 void Player_Push_Thread(Player_List* wl,char* word, int socket_fd);
 
 //rimuovo il primo elemento dalla lista

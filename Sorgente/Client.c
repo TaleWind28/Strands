@@ -25,6 +25,7 @@ void* bounce(void* args);
 void* trade(void* args);
 pthread_t bouncer,merchant,main_tid;
 char* matrice;
+int only_space_string(char* string);
 
 void gestione_terminazione_errata(int signum) {
     int retvalue;
@@ -41,8 +42,20 @@ void gestione_terminazione_errata(int signum) {
                 return;
             }
             else return;
+        case SIGQUIT:
+            if(pthread_self()== main_tid){
+                printf("sigint\n");
+                pthread_kill(merchant,SIGUSR2);
+                pthread_cancel(bouncer);
+                pthread_join(merchant,NULL);
+                SYSC(retvalue,close(client_fd),"chiusura del client");
+                /*chiudo il socket*/
+                exit(EXIT_SUCCESS);
+                return;
+            }
+            else return;
+
         case SIGUSR1:
-            //pthread_cancel(bouncer);
             pthread_exit(NULL);
             return;
         case SIGUSR2:
@@ -85,8 +98,9 @@ int main(int argc, char* argv[]){
     /*IMPOSTO LA MASCHERA*/
     sigemptyset(&maschera_segnale);
     SYSC(retvalue,sigaddset(&maschera_segnale,SIGINT),"aggiunta SIGINT alla maschera");
-    SYSC(retvalue,sigaddset(&maschera_segnale,SIGUSR1),"aggiunta SIGINT alla maschera");
-    SYSC(retvalue,sigaddset(&maschera_segnale,SIGUSR2),"aggiunta SIGINT alla maschera");
+        SYSC(retvalue,sigaddset(&maschera_segnale,SIGQUIT),"aggiunta SIGQUIT alla maschera");
+    SYSC(retvalue,sigaddset(&maschera_segnale,SIGUSR1),"aggiunta SIGUSR1 alla maschera");
+    SYSC(retvalue,sigaddset(&maschera_segnale,SIGUSR2),"aggiunta SIGUSR2 alla maschera");
 
     /*IMPOSTO LA SIGACTION*/
     azione_segnale.sa_handler = gestione_terminazione_errata;
@@ -96,6 +110,7 @@ int main(int argc, char* argv[]){
     sigaction(SIGINT,&azione_segnale,NULL);
     sigaction(SIGUSR1,&azione_segnale,NULL);
     sigaction(SIGUSR2,&azione_segnale,NULL);
+    sigaction(SIGQUIT,&azione_segnale,NULL);
 
     main_tid = pthread_self();
 
@@ -186,10 +201,22 @@ void* trade(void* args){
             writef(retvalue,HELP_MESSAGE);
             continue;
         }
-        if (strcmp(token,"registra_utente")==0){
+        if (strcmp(token,"registra_utente")==0 || strcmp(token,"registra_utente\n")==0){
             token = strtok(NULL,"\n");
-            if (token == NULL || token[0] == '\n'){
+            if (token == NULL){
                 writef(retvalue,"nome utente non valido\n");
+                writef(retvalue,"[PROMPT PAROLIERE]--> ");
+                continue;
+            }
+            
+            if(only_space_string(token)==0){
+                writef(retvalue,"nome utente vuoto\n");
+                writef(retvalue,"[PROMPT PAROLIERE]--> ");
+                continue;
+            }
+            
+            if (token[0] == '\n'){
+                writef(retvalue,"nome utente troppo corto\n");
                 continue;
             }
             //invio al server il messaggio con le credenziali per la registrazione
@@ -205,15 +232,16 @@ void* trade(void* args){
             //tokenizzo la stringa per ottenere la parla inserita dall'utente
             token = strtok(NULL,"\n");
             //controllo che il token contenga qualcosa 
-            if (token == NULL || token[0] == '\n'){
-                //se il token è vuoto la parola è automaticamente sbagliata, quindi la considero come parola lunga 3 minuscola con il \n
-                Send_Message(comm_fd,"lol\n",MSG_PAROLA);
-            }else{
+            
+            if (token == NULL || token[0] == '\n' || strlen(token)<4){
+                //se il token rientra in uno dei casi sopra sicuramente la parola non è valida, quindi non serve mandarla al server
+                writef(retvalue,"inserisci una parola lunga almeno 4 parole\n");
+                continue;
+            }
                 //rendo maiuscola la stringa
                 Caps_Lock(token);
                 //invio al server la parola
                 Send_Message(comm_fd,token,MSG_PAROLA);
-            }
             continue;
         }
         if (strcmp(token,"fine\n")==0){
@@ -236,4 +264,15 @@ void* trade(void* args){
         writef(retvalue,"[PROMPT PAROLIERE]-->");
     }  
     return NULL;
+}
+
+int only_space_string(char* string){
+    int spaces = 0;
+    for(int i =0;i<strlen(string);i++){
+        if (string[i] == ' '){
+            spaces++;
+        }
+    }
+    if (spaces == strlen(string))return 0;
+    else return -1;
 }

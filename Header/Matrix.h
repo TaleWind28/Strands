@@ -1,9 +1,12 @@
 /*STRUTTURE DATI*/
 
 typedef struct{
-    int V; // Numero di nodi nel grafo
-    char *nodes; // Array di caratteri per le etichette dei nodi
-    int **adjList; // Lista di adiacenza
+    // Numero di nodi nel grafo
+    int V; 
+    //Array di caratteri per le etichette dei nodi
+    char *nodes;
+    //Lista di adiacenza
+    int **adjList; 
 }Graph;
 
 typedef enum {false,true} bool;

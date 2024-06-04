@@ -82,7 +82,7 @@ int game_on = 0,ready = 0,game_starting,client_attivi = 0,score_time = 0;
 char classifica[2048];
 int server_fd,client_fd;
 time_t start_time,end_time;
-pthread_t jester,scorer;
+pthread_t jester,scorer,main_tid;
 //
 
 char* tempo(int max_dur){
@@ -96,83 +96,88 @@ char* tempo(int max_dur){
 
 /*MAIN DEL PROGRAMMA*/
 void gestore_segnale(int signum) {
-  int retvalue;
-  if (signum == SIGINT){
-    pthread_cancel(jester);
-    pthread_mutex_lock(&client_mutex);
-    //ammazza tutti i thread dei client
-    while(Players!=NULL){
-        pthread_t handler = Player_Peek_Hanlder(Players);
-        pthread_cancel(handler);
-        Player_Pop(&Players);
+    int retvalue;
+    if (signum == SIGINT){
+        if (pthread_self() != main_tid)return;
+        pthread_cancel(jester);
+        
+        //ammazza tutti i thread dei client
+        pthread_mutex_lock(&player_mutex);
+        while(Players!=NULL){
+            pthread_t handler = Player_Peek_Hanlder(Players);
+            pthread_cancel(handler);
+            Player_Pop(&Players);
 
-    }
-    printf("alla fine rimase solo il server\n");
-    //ammazza tutti i client
-    while (Client_List!=NULL){
-        int death_sentence = L_Pop(&Client_List);
-        Send_Message(death_sentence,"Ci scusiamo per il disagio ma dobbiamo terminare le attività, Grazie per aver Giocato\n",MSG_CHIUSURA_CONNESSIONE);
-        writef(retvalue,"ammazzato\n");
-    }
-    pthread_mutex_unlock(&client_mutex);
-    
-    if (score_time == 1)pthread_cancel(scorer);
-    writef(retvalue,"ammazzati tutti\n");
-    SYSC(retvalue,shutdown(server_fd,SHUT_RDWR),"nello shutdown"); 
-    writef(retvalue,"ammazzati tutti\n");
-    SYSC(retvalue,close(server_fd),"chiusura dovuta a SIGINT");
-    writef(retvalue,"terminazione dovuta a SIGINT\n");
+        }
+        pthread_mutex_unlock(&player_mutex);
+        printf("alla fine rimase solo il server\n");
+        //ammazza tutti i client
+        pthread_mutex_lock(&client_mutex);
+        while (Client_List!=NULL){
+            int death_sentence = L_Pop(&Client_List);
+            Send_Message(death_sentence,"Ci scusiamo per il disagio ma dobbiamo terminare le attività, Grazie per aver Giocato\n",MSG_CHIUSURA_CONNESSIONE);
+            writef(retvalue,"ammazzato\n");
+        }
+        pthread_mutex_unlock(&client_mutex);
+        
+        if (score_time == 1)pthread_cancel(scorer);
+        writef(retvalue,"ammazzati tutti\n");
+        SYSC(retvalue,shutdown(server_fd,SHUT_RDWR),"nello shutdown"); 
+        writef(retvalue,"ammazzati tutti\n");
+        SYSC(retvalue,close(server_fd),"chiusura dovuta a SIGINT");
+        writef(retvalue,"terminazione dovuta a SIGINT\n");
 
-    exit(EXIT_SUCCESS);
-  }
-  if (signum == SIGALRM) {
-    write(1, "ricevuto segnale SIGALRM\n", 25);
-    char* time_string;
-    switch(game_on){
-        case 0:
-            start_time = end_time; 
-            //durata partita
-            //char* matrice = Stringify_Matrix(matrice_di_gioco);
-            alarm(parametri_server.durata_partita);
-            time_string = tempo(parametri_server.durata_partita);
-            Player_List tempor = Players;
-            for (int i =0;i<Player_Size(Players);i++){
-                pthread_t handler = Player_Peek_Hanlder(tempor);
-                int fd = Player_Retrieve_Socket(Players,handler);
-                Send_Message(fd,matrice_di_gioco,MSG_MATRICE);
-                Send_Message(fd,time_string,MSG_TEMPO_PARTITA);
-                tempor = tempor->next;
-            }
-            
-            game_on = 1;
-            printf("game on\n");
-            break;
-        case 1:
-            time(&end_time);
-            start_time = end_time;
-            //durata pausa
-            free(matrice_di_gioco);
-            game_starting = 0;
-            ready = 0;
-            game_on = 0;
-            score_time = 1;
-            //dico a tutti i thread di mandare i risultati allo scorer
-            Player_List temp = Players;
-            for(int i = 0;i<Player_Size(Players);i++){
-                pthread_t handler = Player_Peek_Hanlder(temp);
-                SYST(retvalue,pthread_kill(handler,SIGUSR1),"nell'avviso di mandare il punteggio allo scorer");
-                temp = temp->next;
-            }
-            SYST(retvalue,pthread_create(&scorer,NULL,scoring,NULL),"nella creazione dello scorer");
-            time_string = tempo(DURATA_PAUSA);
-            Player_List tempot = Players;
-            for (int i =0;i<Player_Size(Players);i++){
-                pthread_t handler = Player_Peek_Hanlder(tempot);
-                int fd2 = Player_Retrieve_Socket(Players,handler);
-                Send_Message(fd2,time_string,MSG_TEMPO_PARTITA);
-                tempot = tempot->next;
-            }
-            printf("game off\n");
+        exit(EXIT_SUCCESS);
+    }
+    if (signum == SIGALRM){
+        write(1, "ricevuto segnale SIGALRM\n", 25);
+        char* time_string;
+        switch(game_on){
+            case 0:
+                start_time = end_time; 
+                //istanzio un allarme in base al parametro che mi viene passato
+                alarm(parametri_server.durata_partita);
+                //creo la stringa temporale
+                time_string = tempo(parametri_server.durata_partita);
+                Player_List tempor = Players;
+                //invio la stringa ai giocatori
+                for (int i =0;i<Player_Size(Players);i++){
+                    pthread_t handler = Player_Peek_Hanlder(tempor);
+                    int fd = Player_Retrieve_Socket(Players,handler);
+                    Send_Message(fd,matrice_di_gioco,MSG_MATRICE);
+                    Send_Message(fd,time_string,MSG_TEMPO_PARTITA);
+                    tempor = tempor->next;
+                }
+                game_on = 1;
+                printf("game on\n");
+                break;
+            case 1:
+                time(&end_time);
+                start_time = end_time;
+                //durata pausa
+                free(matrice_di_gioco);
+                game_starting = 0;
+                ready = 0;
+                game_on = 0;
+                score_time = 1;
+                //dico a tutti i thread di mandare i risultati allo scorer
+                Player_List temp = Players;
+                for(int i = 0;i<Player_Size(Players);i++){
+                    pthread_t handler = Player_Peek_Hanlder(temp);
+                    SYST(retvalue,pthread_kill(handler,SIGUSR1),"nell'avviso di mandare il punteggio allo scorer");
+                    temp = temp->next;
+                }
+                SYST(retvalue,pthread_create(&scorer,NULL,scoring,NULL),"nella creazione dello scorer");
+                time_string = tempo(DURATA_PAUSA);
+                Player_List tempot = Players;
+                for (int i =0;i<Player_Size(Players);i++){
+                    pthread_t handler = Player_Peek_Hanlder(tempot);
+                    int fd2 = Player_Retrieve_Socket(Players,handler);
+                    Send_Message(fd2,time_string,MSG_TEMPO_PARTITA);
+                    tempot = tempot->next;
+                }
+                printf("game off\n");
+                break;
         }
     }
     if (signum == SIGUSR1){
@@ -192,7 +197,6 @@ void gestore_segnale(int signum) {
         score_time = 0;
     }
     if (signum == SIGUSR2){
-        //printf("ciao\n");
         //vai a prendere il client fd in base al gestore
         int comm_fd = Player_Retrieve_Socket(Players,pthread_self());
         Send_Message(comm_fd,classifica,MSG_PUNTI_FINALI);
@@ -215,6 +219,7 @@ int main(int argc, char* argv[]){
     Dizionario = create_node();
     /*INIZIALIZZO LA MATRICE DI GIOCO*/
     matrice_di_gioco =(char*)malloc(16*sizeof(char)); 
+    main_tid  = pthread_self();
     //carico il dizionario in memoria
     Load_Dictionary(Dizionario,parametri_server.file_dizionario);
     writef(retvalue,"server_online\n");

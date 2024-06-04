@@ -21,17 +21,13 @@ char* Load_Matrix(char* path_to_file,char exception,int* offset){
     /*LEGGO LA PRIMA RIGA DEL FILE*/
     buffer = File_Read(fd,exception,offset);
     Caps_Lock(buffer);
-    /*AGGIORNO LA MATRICE IN BASE ALLA LETTURA*/
-    
-    //writef(retvalue,buffer);
-    Adjust_String(buffer,exception);
-    //Fill_Matrix(m,buffer);
     /*CHIUDO IL FILE*/
     SYSC(retvalue,close(fd),"nella chiusura del file descriptor");
+
     return buffer;
 }
 
- char* File_Read(int fd, char exception, int* offset){
+char* File_Read(int fd, char exception, int* offset){
     //18 è la lunghezza massima perchè 16 parole +\n +\0
     char* buffer = (char*)malloc(17);
     int retvalue;char carattere;ssize_t n_read;
