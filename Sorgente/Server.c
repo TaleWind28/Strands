@@ -30,7 +30,7 @@
 #define DIZIONARIO "../Text/Dizionario.txt"
 #define MATRICI "../Text/Matrici.txt"
 #define DURATA_PAUSA 2 //20 secondi
-#define DURATA_PARTITA 60//60 secondi
+#define DURATA_PARTITA 5//60 secondi
 
 typedef struct {
     char* matrix_file;
@@ -69,11 +69,12 @@ int Check_Words(char* string,off_t* offset, int file_descriptor);
 Parametri parametri_server;
 Word_List Scoring_List;
 Player_List Players;
-Matrix matrice_di_gioco;
+char* matrice_di_gioco;
 Trie* Dizionario;
 pthread_mutex_t player_mutex,scorer_mutex,client_mutex;
+
 List Client_List;
-struct Graph* graph;
+Graph* matrice_grafo;
 
 char* HOST;
 int PORT;
@@ -81,7 +82,7 @@ int game_on = 0,ready = 0,game_starting,client_attivi = 0,score_time = 0;
 char classifica[2048];
 int server_fd,client_fd;
 time_t start_time,end_time;
-pthread_t jester,scorer;
+pthread_t jester,scorer,main_tid;
 //
 
 char* tempo(int max_dur){
@@ -95,84 +96,88 @@ char* tempo(int max_dur){
 
 /*MAIN DEL PROGRAMMA*/
 void gestore_segnale(int signum) {
-  int retvalue;
-  if (signum == SIGINT){
-    pthread_cancel(jester);
-    pthread_mutex_lock(&client_mutex);
-    //ammazza tutti i thread dei client
-    while(Players!=NULL){
-        pthread_t handler = Player_Peek_Hanlder(Players);
-        pthread_cancel(handler);
-        Player_Pop(&Players);
+    int retvalue;
+    if (signum == SIGINT){
+        if (pthread_self() != main_tid)return;
+        pthread_cancel(jester);
+        
+        //ammazza tutti i thread dei client
+        pthread_mutex_lock(&player_mutex);
+        while(Players!=NULL){
+            pthread_t handler = Player_Peek_Hanlder(Players);
+            pthread_cancel(handler);
+            Player_Pop(&Players);
 
-    }
-    printf("alla fine rimase solo il server");
-    //ammazza tutti i client
-    while (Client_List!=NULL){
-        int death_sentence = L_Pop(&Client_List);
-        Send_Message(death_sentence,"morte al server",MSG_CHIUSURA_CONNESSIONE);
-        writef(retvalue,"ammazzato\n");
-        //Client_List = Client_List->next;
-    }
-    pthread_mutex_unlock(&client_mutex);
-    
-    if (score_time == 1)pthread_cancel(scorer);
-    writef(retvalue,"ammazzati tutti\n");
-    SYSC(retvalue,shutdown(server_fd,SHUT_RDWR),"nello shutdown"); 
-    writef(retvalue,"ammazzati tutti\n");
-    SYSC(retvalue,close(server_fd),"chiusura dovuta a SIGINT");
-    writef(retvalue,"terminazione dovuta a SIGINT\n");
+        }
+        pthread_mutex_unlock(&player_mutex);
+        printf("alla fine rimase solo il server\n");
+        //ammazza tutti i client
+        pthread_mutex_lock(&client_mutex);
+        while (Client_List!=NULL){
+            int death_sentence = L_Pop(&Client_List);
+            Send_Message(death_sentence,"Ci scusiamo per il disagio ma dobbiamo terminare le attività, Grazie per aver Giocato\n",MSG_CHIUSURA_CONNESSIONE);
+            writef(retvalue,"ammazzato\n");
+        }
+        pthread_mutex_unlock(&client_mutex);
+        
+        if (score_time == 1)pthread_cancel(scorer);
+        writef(retvalue,"ammazzati tutti\n");
+        SYSC(retvalue,shutdown(server_fd,SHUT_RDWR),"nello shutdown"); 
+        writef(retvalue,"ammazzati tutti\n");
+        SYSC(retvalue,close(server_fd),"chiusura dovuta a SIGINT");
+        writef(retvalue,"terminazione dovuta a SIGINT\n");
 
-    exit(EXIT_SUCCESS);
-  }
-  if (signum == SIGALRM) {
-    write(1, "ricevuto segnale SIGALRM\n", 25);
-    char* time_string;
-    switch(game_on){
-        case 0:
-            start_time = end_time; 
-            //durata partita
-            char* matrice = Stringify_Matrix(matrice_di_gioco);
-            alarm(DURATA_PARTITA);
-            time_string = tempo(DURATA_PARTITA);
-            Player_List tempor = Players;
-            for (int i =0;i<Player_Size(Players);i++){
-                pthread_t handler = Player_Peek_Hanlder(tempor);
-                int fd = Player_Retrieve_Socket(Players,handler);
-                Send_Message(fd,matrice,MSG_MATRICE);
-                Send_Message(fd,time_string,MSG_TEMPO_PARTITA);
-                tempor = tempor->next;
-            }
-            
-            game_on = 1;
-            printf("game on\n");
-            break;
-        case 1:
-            time(&end_time);
-            start_time = end_time;
-            //durata pausa
-            game_starting = 0;
-            ready = 0;
-            game_on = 0;
-            score_time = 1;
-            //dico a tutti i thread di mandare i risultati allo scorer
-            Player_List temp = Players;
-            for(int i = 0;i<Player_Size(Players);i++){
-                pthread_t handler = Player_Peek_Hanlder(temp);
-                SYST(retvalue,pthread_kill(handler,SIGUSR1),"nell'avviso di mandare il punteggio allo scorer");
-                temp = temp->next;
-            }
-            SYST(retvalue,pthread_create(&scorer,NULL,scoring,NULL),"nella creazione dello scorer");
-            matrice_di_gioco = Create_Matrix(NUM_ROWS,NUM_COLUMNS);
-            time_string = tempo(DURATA_PAUSA);
-            Player_List tempot = Players;
-            for (int i =0;i<Player_Size(Players);i++){
-                pthread_t handler = Player_Peek_Hanlder(tempot);
-                int fd2 = Player_Retrieve_Socket(Players,handler);
-                Send_Message(fd2,time_string,MSG_TEMPO_PARTITA);
-                tempot = tempot->next;
-            }
-            printf("game off\n");
+        exit(EXIT_SUCCESS);
+    }
+    if (signum == SIGALRM){
+        write(1, "ricevuto segnale SIGALRM\n", 25);
+        char* time_string;
+        switch(game_on){
+            case 0:
+                start_time = end_time; 
+                //istanzio un allarme in base al parametro che mi viene passato
+                alarm(parametri_server.durata_partita);
+                //creo la stringa temporale
+                time_string = tempo(parametri_server.durata_partita);
+                Player_List tempor = Players;
+                //invio la stringa ai giocatori
+                for (int i =0;i<Player_Size(Players);i++){
+                    pthread_t handler = Player_Peek_Hanlder(tempor);
+                    int fd = Player_Retrieve_Socket(Players,handler);
+                    Send_Message(fd,matrice_di_gioco,MSG_MATRICE);
+                    Send_Message(fd,time_string,MSG_TEMPO_PARTITA);
+                    tempor = tempor->next;
+                }
+                game_on = 1;
+                printf("game on\n");
+                break;
+            case 1:
+                time(&end_time);
+                start_time = end_time;
+                //durata pausa
+                free(matrice_di_gioco);
+                game_starting = 0;
+                ready = 0;
+                game_on = 0;
+                score_time = 1;
+                //dico a tutti i thread di mandare i risultati allo scorer
+                Player_List temp = Players;
+                for(int i = 0;i<Player_Size(Players);i++){
+                    pthread_t handler = Player_Peek_Hanlder(temp);
+                    SYST(retvalue,pthread_kill(handler,SIGUSR1),"nell'avviso di mandare il punteggio allo scorer");
+                    temp = temp->next;
+                }
+                SYST(retvalue,pthread_create(&scorer,NULL,scoring,NULL),"nella creazione dello scorer");
+                time_string = tempo(DURATA_PAUSA);
+                Player_List tempot = Players;
+                for (int i =0;i<Player_Size(Players);i++){
+                    pthread_t handler = Player_Peek_Hanlder(tempot);
+                    int fd2 = Player_Retrieve_Socket(Players,handler);
+                    Send_Message(fd2,time_string,MSG_TEMPO_PARTITA);
+                    tempot = tempot->next;
+                }
+                printf("game off\n");
+                break;
         }
     }
     if (signum == SIGUSR1){
@@ -192,7 +197,6 @@ void gestore_segnale(int signum) {
         score_time = 0;
     }
     if (signum == SIGUSR2){
-        printf("ciao\n");
         //vai a prendere il client fd in base al gestore
         int comm_fd = Player_Retrieve_Socket(Players,pthread_self());
         Send_Message(comm_fd,classifica,MSG_PUNTI_FINALI);
@@ -213,20 +217,16 @@ int main(int argc, char* argv[]){
     Players = NULL;
     //inizializzo il dizionario
     Dizionario = create_node();
+    /*INIZIALIZZO LA MATRICE DI GIOCO*/
+    matrice_di_gioco =(char*)malloc(16*sizeof(char)); 
+    main_tid  = pthread_self();
     //carico il dizionario in memoria
     Load_Dictionary(Dizionario,parametri_server.file_dizionario);
-    // char buffer[280000];
-    // Print_Trie(Dizionario,buffer,0);
-
-    //debug
-    // int l = search_Trie("CIAO",Dizionario);
-    // char mess[buff_size];
-    // sprintf(mess,"%d\n",l);
-    // writef(retvalue,mess);
     writef(retvalue,"server_online\n");
-    /*INIZIALIZZO LA MATRICE DI GIOCO*/
-    matrice_di_gioco = Create_Matrix(NUM_ROWS,NUM_COLUMNS);
-
+    
+    SYST(retvalue,pthread_mutex_init(&player_mutex,NULL),"nell'inizializzazione della player mutex");
+    SYST(retvalue,pthread_mutex_init(&client_mutex,NULL),"nell'inizializzazione della client mutex");
+    SYST(retvalue,pthread_mutex_init(&scorer_mutex,NULL),"nell'inizializzazione della scorer mutex");
     
     /*CREO UN THREAD PER GESTIRE LA CREAZIONE DEL SERVER ED IL DISPATCHING DEI THREAD*/
     SYST(retvalue,pthread_create(&jester,NULL,Gestione_Server,NULL),"nella creazione del giullare");
@@ -237,10 +237,11 @@ int main(int argc, char* argv[]){
     while(1){
         if (ready == 0){
             Generate_Round(&offset);
-            Print_Matrix(matrice_di_gioco,'?','Q');
+            writef(retvalue,matrice_di_gioco);
+            printf("\n");
+            Print_Matrix(matrice_di_gioco,NUM_ROWS,NUM_COLUMNS,'?');
             ready = 1;
-            char* prova = Stringify_Matrix(matrice_di_gioco);
-            graph = Build_Graph(prova,4,4);
+            matrice_grafo = Build_Graph(matrice_di_gioco,4,4);
         }
         if (Player_Size(Players)>0 && game_starting == 0){
             time(&start_time);
@@ -263,7 +264,6 @@ void Init_Params(int argc, char*argv[],Parametri* params){
         {"durata", required_argument, 0, OPT_DURATA},
         {"seed", required_argument, 0, OPT_SEED},
         {"diz", required_argument, 0, OPT_DIZ},
-        //{0, 0, 0, 0}
     };
 
     /*CONTROLLO PARAMETRI RIGA DI COMANDO*/
@@ -278,8 +278,9 @@ void Init_Params(int argc, char*argv[],Parametri* params){
     /*valori di defualt in caso non venissero passati*/
     params->file_dizionario = DIZIONARIO;
     params->matrix_file = NULL;
-    params->durata_partita = 10;
+    params->durata_partita = 180;
     params->seed = 0;
+    int seed_given;
     /*SCORRO TUTTI I PARAMETRI OPZIONALI RICEVUTI IN INPUT*/
     while((opt = getopt_long(argc,argv,"",logn_opt,&index))!=-1){
         switch(opt){
@@ -287,10 +288,11 @@ void Init_Params(int argc, char*argv[],Parametri* params){
                 params->matrix_file = optarg;
                 break;
             case OPT_DURATA:
-                params->durata_partita = atoi(optarg);
+                params->durata_partita = atoi(optarg)*60;
                 break;
             case OPT_SEED:
                 params->seed = atoi(optarg);
+                seed_given = 1;
                 break;
             case OPT_DIZ:
                 params->file_dizionario = optarg;
@@ -302,20 +304,24 @@ void Init_Params(int argc, char*argv[],Parametri* params){
             default: printf("argomento superfluo ignorato\n");
         }
     }
-
+    if (seed_given == 1 && params->matrix_file != NULL){
+        perror("inserire soltanto 1 argomento opzionale tra seed e matrici");
+        exit(EXIT_FAILURE);
+    }
     srand(params->seed);
     return;
 }
 
 void Generate_Round(int* offset){
+    int retvalue;
     //controllo se l'utente mi ha passato il file contenente le matrici
-    char random_string[matrice_di_gioco.size+1];
+    char random_string[(NUM_ROWS*NUM_COLUMNS)+1];
     if(parametri_server.matrix_file != NULL){
         //leggo dal file in sequenza memorizzando l'offset,e carico la stringa nella matrice
-        Load_Matrix(matrice_di_gioco,parametri_server.matrix_file,'Q',offset);
+        matrice_di_gioco = Load_Matrix(parametri_server.matrix_file,'Q',offset);
+        writef(retvalue,matrice_di_gioco);
     }else{
         //se non ho il file genero casualmente
-        srand(parametri_server.seed);
         for (int i =0;i<16;i++){
             //genero un carattere random,modulo 26 perchè è 90-65 
             random_string[i] = (char)((rand()%26)+65);
@@ -326,13 +332,10 @@ void Generate_Round(int* offset){
             }
         }
         //termino la stringa
-        random_string[matrice_di_gioco.size+1] ='\0';
-
+        random_string[(NUM_ROWS*NUM_COLUMNS)+1] ='\0';
         //carico la stringa nella matrice
-        Fill_Matrix(matrice_di_gioco,random_string);
+        strncpy(matrice_di_gioco,random_string,16);
     }
-    //stampo sul server la matrice/*DEBUG*/
-    //Print_Matrix(matrice_di_gioco,'?','Q');
     return;
 }
 
@@ -370,7 +373,20 @@ void* Thread_Handler(void* args){
     /*RECUPERO IL VALORE PASSATO AL THREAD NELLA PTHREAD CREATE*/
     int client_fd = *(int*) args;
     Word_List parole_indovinate = NULL;
+    pthread_mutex_lock(&client_mutex);
     L_Push(&Client_List,client_fd);
+    if(L_Size(Client_List)> MAX_NUM_CLIENTS){
+        printf("ciao\n");
+        Send_Message(client_fd,"Ci scusiamo per il disagio ma il server al momento è pieno\n",MSG_CHIUSURA_CONNESSIONE);
+        L_Pop(&Client_List);
+        pthread_mutex_unlock(&client_mutex);
+        //close(client_fd);
+        return NULL;
+        //Send_Message(client_fd,"Chiusura",MSG_CHIUSURA_CONNESSIONE);
+    }
+    pthread_mutex_unlock(&client_mutex);
+   
+    Send_Message(client_fd,WELCOME_MESSAGE,MSG_OK);
     //accetto solo la registrazione dell'utente
     username = Receive_Message(client_fd,&type);
     
@@ -387,17 +403,20 @@ void* Thread_Handler(void* args){
     }
     if (type == MSG_CHIUSURA_CONNESSIONE){
         writef(retvalue,"chiusura player\n");
-        //lock
+        
+        pthread_mutex_lock(&client_mutex);
         L_Splice(&Client_List);
-        //printf("cavato:%d\n",cia);
+        pthread_mutex_unlock(&client_mutex);
+        
         return NULL;
     }
     Send_Message(client_fd,"Registrazione avvenuta con successo\n",MSG_OK);
+    Send_Message(client_fd,RULES,MSG_OK);
     char* time_string;
     if (game_on == 1){
-        char* matrix_to_send = Stringify_Matrix(matrice_di_gioco);
-        Send_Message(client_fd,matrix_to_send,MSG_MATRICE);
-        time_string = tempo(DURATA_PARTITA);
+        //char* matrix_to_send = Stringify_Matrix(matrice_di_gioco);
+        Send_Message(client_fd,matrice_di_gioco,MSG_MATRICE);
+        time_string = tempo(parametri_server.durata_partita);
         Send_Message(client_fd,time_string,MSG_TEMPO_PARTITA);
     }else{
         time(&start_time);
@@ -448,7 +467,7 @@ void* Thread_Handler(void* args){
 }
 
 void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed,int* points){
-    char *matrix,*time_string;
+    char *time_string;
     char*input_cpy = malloc(strlen(input));
     char* username;
     char* mess = malloc(35);
@@ -463,11 +482,11 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
             }//invia il tempo di attesa
             printf("game_on:%d\n",game_on);
             //trasforma la matrice in una stringa
-            matrix = Stringify_Matrix(matrice_di_gioco);
+            //matrix = Stringify_Matrix(matrice_di_gioco);
             //invio la matrice sotto forma di stringa al client
-            Send_Message(comm_fd,matrix,MSG_MATRICE);
-            free(matrix);
-            time_string = tempo(DURATA_PARTITA);
+            Send_Message(comm_fd,matrice_di_gioco,MSG_MATRICE);
+            //free(matrix);
+            time_string = tempo(parametri_server.durata_partita);
             Send_Message(comm_fd,time_string,MSG_TEMPO_PARTITA);
             return;
 
@@ -484,7 +503,7 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
 
             // //controllo se la parola è componibile nella matrice
             // if (Validate(matrice_di_gioco,input_cpy)!=0){Send_Message(comm_fd,"Parola Illegale su questa matrice\n",MSG_ERR);return;}
-            if (dfs(graph,input_cpy)!=true){Send_Message(comm_fd,"Parola Illegale su questa matrice\n",MSG_ERR);return;}
+            if (dfs(matrice_grafo,input_cpy)!=true){Send_Message(comm_fd,"Parola Illegale su questa matrice\n",MSG_ERR);return;}
             //controllo parole già indovinate/*questo costa meno che cercare nel dizionario,però vva fatto in parallelo col pignoler*/
             if(WL_Find_Word(*already_guessed,input)==0){Send_Message(comm_fd,"Parola già inserita, 0 punti\n",MSG_PUNTI_PAROLA);return;}
             
@@ -578,14 +597,10 @@ void* Gestione_Server(void* args){
     int i = 0;
     //accettazione dei client
         while(1){
-            if (L_Size(Client_List) == MAX_NUM_CLIENTS){
-                continue;
-            }
             if (i == MAX_NUM_CLIENTS)i = 0; 
             /*accettazione delle richieste*/
             SYSC(client_fd,accept(server_fd,(struct sockaddr*)&client_address,&client_length),"nella accept");
             //client_attivi++;
-            
             /*DISPATCHING DI UN THREAD PER GESTIRE LA TRANSAZIONE*/
             SYST(retvalue,pthread_create(&client_thread[i],NULL,Thread_Handler,&client_fd),"dispatching dei thread");
             //SYST(retvalue,pthread_detach(client_thread[i]),"nella detach");
@@ -634,7 +649,7 @@ void* scoring(void* args){
     while (1){
         if (cnt == size)break;
         //aspetta che la coda abbia degli elementi da prendere
-        printf("hey\n");
+        //printf("hey\n");
         //Print_WList(Scoring_List);
         if (WL_Size(Scoring_List)>0){
             //acquisisce mutex
