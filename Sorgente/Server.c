@@ -20,17 +20,21 @@
 
 #include "../Header/macro.h"
 #include "../Header/Matrix.h"
-#include "../Header/Queue.h"
+#include "../Header/Stack.h"
 #include "../Header/Communication.h"
 #include "../Header/Trie.h"
 
-#define MAX_NUM_CLIENTS 2
+#define MAX_NUM_CLIENTS 32
 #define NUM_ROWS 4
 #define NUM_COLUMNS 4
 #define DIZIONARIO "../Text/Dizionario.txt"
 #define MATRICI "../Text/Matrici.txt"
-#define DURATA_PAUSA 2 //20 secondi
-#define DURATA_PARTITA 5//60 secondi
+#define DURATA_PAUSA  60//60 secondi
+/*usata per debugging*/
+//#define DURATA_PARTITA 5//60 secondi
+#include <stdio.h>
+#include <unistd.h>
+#include <string.h>
 
 typedef struct {
     char* matrix_file;
@@ -64,6 +68,7 @@ void Generate_Round();
 void Load_Dictionary(Trie* Dictionary, char* path_to_dict);
 void Replace_Special(char* string,char special);
 int Check_Words(char* string,off_t* offset, int file_descriptor);
+char* tempo(int max_dur);
 
 /*GLOBAL VARIABLES*/
 Parametri parametri_server;
@@ -83,16 +88,7 @@ char classifica[2048];
 int server_fd,client_fd;
 time_t start_time,end_time;
 pthread_t jester,scorer,main_tid;
-//
 
-char* tempo(int max_dur){
-    time(&end_time);
-    double elapsed = difftime(end_time,start_time);
-    double remaining = max_dur-elapsed; //+ 3;  
-    char* mess = malloc(256);
-    sprintf(mess,"%.0f secondi\n",remaining);
-    return mess;
-}
 
 /*MAIN DEL PROGRAMMA*/
 void gestore_segnale(int signum) {
@@ -647,31 +643,27 @@ void* scoring(void* args){
     //printf("hey\n");
     memset(classifica,0,strlen(classifica));
     while (1){
+        //controllo di aver ricevuto tutti i dati
         if (cnt == size)break;
         //aspetta che la coda abbia degli elementi da prendere
-        //printf("hey\n");
-        //Print_WList(Scoring_List);
         if (WL_Size(Scoring_List)>0){
             //acquisisce mutex
             pthread_mutex_lock(&scorer_mutex);
-            //poppa
+            //rimuove il dato dalla pila
             char* data = WL_Pop(&Scoring_List);
             //restitusce mutex
             pthread_mutex_unlock(&scorer_mutex);
+            //tokenizza la stringa per ottenere username e punteggio
             char* token = strtok(data,",");
             global_score[cnt].username = token;
             token = strtok(NULL,",");
             global_score[cnt].points = atoi(token);
-            //aggiorna array di punteggi
-            printf("array aggiornato\n");
+            //incremento il contatore
             cnt++;
         }   
     }
     //ordina l'array in base al più forte
     qsort(global_score,size, sizeof(giocatore), compare);
-    // for(int i =0;i<NUM_THREADS;i++){
-    //     //printf("posizione:%d,valore:%d\n",i,score[i]);
-    // }
     char msg[1024];
     for(int i =0;i<cnt;i++){
         sprintf(msg,"user:%s\tpunteggio:%d\t\n",global_score[i].username,global_score[i].points);
@@ -679,11 +671,22 @@ void* scoring(void* args){
         //printf("%s\n",classifica);
     }
     int retvalue;
+    pthread_mutex_lock(&player_mutex);
     Player_List temp = Players;
+    pthread_mutex_unlock(&player_mutex);
     for(int i = 0;i<Player_Size(Players);i++){
         pthread_t handler = Player_Peek_Hanlder(temp);
-        SYST(retvalue,pthread_kill(handler,SIGUSR2),"nell'avviso di mandare il punteggio allo scorer");
         temp = temp->next;
+        SYST(retvalue,pthread_kill(handler,SIGUSR2),"nell'avviso di mandare il punteggio allo scorer");
     }
     return NULL;
+}
+
+char* tempo(int max_dur){
+    time(&end_time);
+    double elapsed = difftime(end_time,start_time);
+    double remaining = max_dur-elapsed; //+ 3;  
+    char* mess = malloc(256);
+    sprintf(mess,"%.0f secondi\n",remaining);
+    return mess;
 }
