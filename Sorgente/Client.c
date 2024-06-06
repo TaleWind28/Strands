@@ -199,6 +199,7 @@ void* trade(void* args){
         char* token = strtok(input," ");
         if (strcmp(token,"aiuto\n")==0){
             writef(retvalue,HELP_MESSAGE);
+            writef(retvalue,"[PROMPT PAROLIERE]--> ");
             continue;
         }
         if (strcmp(token,"registra_utente")==0 || strcmp(token,"registra_utente\n")==0){

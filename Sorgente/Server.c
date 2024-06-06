@@ -415,7 +415,7 @@ void* Thread_Handler(void* args){
         time_string = tempo(parametri_server.durata_partita);
         Send_Message(client_fd,time_string,MSG_TEMPO_PARTITA);
     }else{
-        time(&start_time);
+        // time(&start_time);
         time_string = tempo(DURATA_PAUSA);
         Send_Message(client_fd,time_string,MSG_TEMPO_ATTESA);
     }
@@ -425,11 +425,9 @@ void* Thread_Handler(void* args){
     pthread_mutex_lock(&player_mutex);
     //inserisco player
     Player_Push_Thread(&Players,username,client_fd);
-    //stampa di debug
-    //Print_WList(Players);
     //rilascio la mutex
     pthread_mutex_unlock(&player_mutex);
-    //char result[buff_size];
+    //inizio a giocare
     while(type != MSG_CHIUSURA_CONNESSIONE){
         while (game_on !=1 && parole_indovinate !=NULL){
             WL_Pop(&parole_indovinate);
