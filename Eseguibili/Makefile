@@ -11,15 +11,16 @@ SORGENTE = ../Sorgente/
 #Headers
 HDRS1 = $(HEADER)macro.h
 HDRS2 = $(HEADER)$(MATRICI).h
-HDRS3 = $(HEADER)$(CODE).h
+HDRS3 = $(HEADER)$(PILE).h
 HDRS4 = $(HEADER)$(COMMS).h
 HDRS5 = $(HEADER)$(TRIE).h
+
 
 #Eseguibili
 SERVER = Server
 CLIENT = Client
 MATRICI = Matrix
-CODE = Queue
+PILE = Stack
 COMMS = Communication
 TRIE = Trie
 
@@ -27,7 +28,7 @@ TRIE = Trie
 OBJS = $(SERVER).o
 OBJC = $(CLIENT).o
 OBJHM = $(MATRICI).o
-OBJHQ = $(CODE).o
+OBJHQ = $(PILE).o
 OBJHC = $(COMMS).o
 OBJHT = $(TRIE).o
 OBJECT-FILES = $(OBJC) $(OBJS) $(OBJHM) $(OBJHQ) $(OBJHC) $(OBJHT)
@@ -35,7 +36,7 @@ OBJECT-FILES = $(OBJC) $(OBJS) $(OBJHM) $(OBJHQ) $(OBJHC) $(OBJHT)
 SRCS = $(SORGENTE)$(SERVER).c
 SRCC = $(SORGENTE)$(CLIENT).c
 SRCM = $(SORGENTE)$(MATRICI).c
-SRCQ = $(SORGENTE)$(CODE).c
+SRCQ = $(SORGENTE)$(PILE).c
 SRCP = $(SORGENTE)$(COMMS).c
 SRCT = $(SORGENTE)$(TRIE).c
 
@@ -69,10 +70,10 @@ $(CLIENT): $(OBJC)
 #Dipendenze File Oggetto
 #Server.o
 $(OBJS): $(SRCS) $(HDRS1) $(HDRS2)
-	@$(CC) $(CFLAGS) -c $(SRCS) $(SRCM) $(SRCQ) $(SRCP) $(SRCT) $(HDRS1) $(HDRS2) $(HDRS3) $(HDRS4) $(HDRS5)
+	@$(CC) $(CFLAGS) -c $(SRCS) $(SRCM) $(SRCQ) $(SRCP) $(SRCT) $(HDRS1) $(HDRS2) $(HDRS3) $(HDRS4) $(HDRS5) 
 #Client.o
 $(OBJC): $(SRCC) $(HDRS1) $(HDRS2) 
-	@$(CC) $(CFLAGS) -c $(SRCC) $(SRCM) $(SRCQ) $(SRCP) $(SRCT) $(HDRS1) $(HDRS2) $(HDRS3) $(HDRS4) $(HDRS5)
+	@$(CC) $(CFLAGS) -c $(SRCC) $(SRCM) $(SRCQ) $(SRCP) $(SRCT) $(HDRS1) $(HDRS2) $(HDRS3) $(HDRS4) $(HDRS5) 
 #Matrix.o
 $(OBJHM): $(SRCM) $(HDRS2) $(HDRS3)
 	$(CC) $(CFLAGS) -c $(SRCM) $(SRCQ) $(HDRS2) $(HDRS3)

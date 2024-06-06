@@ -7,7 +7,7 @@
 #include <sys/wait.h>
 #include <pthread.h>
 #include "../Header/macro.h"
-#include "../Header/Queue.h"
+#include "../Header/Stack.h"
 
 /*INSERISCO UN ELEMENTO IN TESTA ALLA LISTA*/
 void WL_Push(Word_List* wl,char* word){

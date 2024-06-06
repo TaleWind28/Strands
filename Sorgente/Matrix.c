@@ -7,7 +7,7 @@
 #include <sys/wait.h>
 #include "../Header/macro.h"
 #include "../Header/Matrix.h"
-#include "../Header/Queue.h"
+#include "../Header/Stack.h"
 #include "../Header/Communication.h"
 
 

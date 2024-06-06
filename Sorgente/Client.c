@@ -15,7 +15,7 @@
 #include <errno.h>
 #include "../Header/macro.h"
 #include "../Header/Matrix.h"
-#include "../Header/Queue.h"
+#include "../Header/Stack.h"
 #include "../Header/Communication.h"
 
 #define NUM_ROWS 4
@@ -197,8 +197,9 @@ void* trade(void* args){
         strncpy(input,input_buffer,n_read);
         input[n_read] = '\0';
         char* token = strtok(input," ");
-        if (strcmp(token,"aiuto")==0){
+        if (strcmp(token,"aiuto\n")==0){
             writef(retvalue,HELP_MESSAGE);
+            writef(retvalue,"[PROMPT PAROLIERE]--> ");
             continue;
         }
         if (strcmp(token,"registra_utente")==0 || strcmp(token,"registra_utente\n")==0){
