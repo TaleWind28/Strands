@@ -509,9 +509,9 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
             //comunico al client che la parola era corretta insieme al punteggio
             char message[buff_size];
             //aumento i punti
-            Player_Update_Score(Players,pthread_self(),strlen(input));
+            Player_Update_Score(Players,pthread_self(),strlen(input_cpy));
             //calcolo i punti in base alla lunghezza della stringa
-            sprintf(message,"Complimenti la parola che hai inserito vale %ld punti\n",strlen(input));
+            sprintf(message,"Complimenti la parola che hai inserito vale %ld punti\n",strlen(input_cpy));
             //aggiorno il punteggio dell'utente
             //invio all'utente il messaggio con i suoi punti
             Send_Message(comm_fd,message,MSG_PUNTI_PAROLA);
