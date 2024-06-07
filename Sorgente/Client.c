@@ -160,8 +160,8 @@ void* bounce(void* args){
                 }else{
                     writef(retvalue,"classifica finale\n");
                     writef(retvalue,answer);
-                }
-                writef(retvalue,"\n");
+                }   
+                //writef(retvalue,"\n");
                 break;
 
             case MSG_ERR:
@@ -218,6 +218,7 @@ void* trade(void* args){
             
             if (token[0] == '\n'){
                 writef(retvalue,"nome utente troppo corto\n");
+                writef(retvalue,"[PROMPT PAROLIERE]--> ");
                 continue;
             }
             //invio al server il messaggio con le credenziali per la registrazione
@@ -262,7 +263,7 @@ void* trade(void* args){
         }
         //stampa di default
         writef(retvalue,"comando non disponibile, digitare aiuto per una lista dettagliata\n");
-        writef(retvalue,"[PROMPT PAROLIERE]-->");
+        writef(retvalue,"[PROMPT PAROLIERE]--> ");
     }  
     return NULL;
 }

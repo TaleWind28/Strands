@@ -90,114 +90,171 @@ time_t start_time;
 pthread_t jester,scorer,main_tid;
 
 
-
+//ISTANZIO IL GESTORE DEI SEGNALI
 void gestore_segnale(int signum) {
     int retvalue;
+    //CONTROLLO IL SEGNALE CHE HO RICEVUTO
     if (signum == SIGINT){
+        //FACCIO RISPONDERE AL SIGINT SOLO IL THREAD DEL MAIN
         if (pthread_self() != main_tid)return;
-        pthread_cancel(jester);
+        //TERMINO IL THREAD CHE GESTISCE LE CONNESSIONI DEI CLIENT
+        SYST(retvalue,pthread_cancel(jester),"nell'ammazzamento del jester");
         
         //ammazza tutti i thread dei client
         pthread_mutex_lock(&player_mutex);
+        //CICLO SU TUTTA LA LISTA ELIMINANDOLA
         while(Players!=NULL){
+            //RECUPERO IL GESTORE
             pthread_t handler = Player_Peek_Hanlder(Players);
-            pthread_cancel(handler);
+            //LO TERMINO
+            SYST(retvalue,pthread_cancel(handler),"nell'ammazzamento dei vari handler");
+            //ELIMINO IL GIOCATORE
             Player_Pop(&Players);
 
         }
+        //RESTITUISCO LA MUTEX
         pthread_mutex_unlock(&player_mutex);
-        printf("alla fine rimase solo il server\n");
+        
         //ammazza tutti i client
         pthread_mutex_lock(&client_mutex);
+        //USO LA STESSA PRICEDURA PER COMUNICARE LA CHIUSURA AI CLIENT
         while (Client_List!=NULL){
+            //RECUPERO IL FILE DESCRIPTOR DEL CLIENT
             int death_sentence = L_Pop(&Client_List);
+            //GLI INVIO UN MESSAGIGO DI CHIUSURA
             Send_Message(death_sentence,"Ci scusiamo per il disagio ma dobbiamo terminare le attività, Grazie per aver Giocato\n",MSG_CHIUSURA_CONNESSIONE);
+            //STAMPA DI DEBUG
             writef(retvalue,"ammazzato\n");
         }
         pthread_mutex_unlock(&client_mutex);
-        
-        if (score_time == 1)pthread_cancel(scorer);
-        writef(retvalue,"ammazzati tutti\n");
+        //IN CASO ABBIA AVVIATO LO SCORER LO TERMINO
+        if (score_time == 1)SYST(retvalue,pthread_cancel(scorer),"AMMAZZAVO LO SCORER");
+        //writef(retvalue,"ammazzati tutti\n");
+        printf("alla fine rimase solo il server\n");
         SYSC(retvalue,shutdown(server_fd,SHUT_RDWR),"nello shutdown"); 
-        writef(retvalue,"ammazzati tutti\n");
         SYSC(retvalue,close(server_fd),"chiusura dovuta a SIGINT");
         writef(retvalue,"terminazione dovuta a SIGINT\n");
-
         exit(EXIT_SUCCESS);
     }
+    //CONTROLLO GLI STATI DI GIOCO
     if (signum == SIGALRM){
+        //STAMPA DI DEBUG
         write(1, "ricevuto segnale SIGALRM\n", 25);
         char* time_string;
+        //IN BASE ALLO STATO FACCIO COSE DIVERSE
+        //NON HO BISOGNO DI CONTROLLARE CHE THREAD RISPONDE AL SEGNALE PERCHÈ IL SIGALARM VIENE INVIATO SOO AL THREAD CHE ISTANZIA L'ALLARME CHE È IL MAIN
         switch(game_on){
+            //STATO DI PAUSA
             case 0:
+                //MEMORIZZO L'ISTANTE DI TEMPO
                 time(&start_time);
-                //istanzio un allarme in base al parametro che mi viene passato
+                //ISTANZIO UN ALLARME IN BASE ALLA DURATA CHE HO INIZIALIZZATO
                 alarm(parametri_server.durata_partita);
-                //creo la stringa temporale
+                //CREO LA STRINGA DA INVIARE AI GIOCATOORI
                 time_string = tempo(parametri_server.durata_partita);
+                pthread_mutex_lock(&player_mutex);
                 Player_List tempor = Players;
-                //invio la stringa ai giocatori
+                pthread_mutex_unlock(&player_mutex);
+                //INVIO LA STRINGA AI GIOCATORI SCORRENDO LA LISTA TEMPORANEA COME PER IL SIGINT
                 for (int i =0;i<Player_Size(Players);i++){
+                    //PRENDO IL GESTORE
                     pthread_t handler = Player_Peek_Hanlder(tempor);
+                    //PRENDO IL FILE DESCRIPTOR
                     int fd = Player_Retrieve_Socket(Players,handler);
+                    //MANDO LA MATRICE
                     Send_Message(fd,matrice_di_gioco,MSG_MATRICE);
+                    //MANDO IL TEMPO
                     Send_Message(fd,time_string,MSG_TEMPO_PARTITA);
+                    //SCORRO LA LISTA
                     tempor = tempor->next;
                 }
+                //CAMBIO LO STATO E LO FACCIO DIVENTARE STATO DI GIOCO
                 game_on = 1;
+                //STAMPA DI DEBUG
                 printf("game on\n");
                 break;
+            //STATO DI GIOCO
             case 1:
+                //MEMORIZZO L'ISTANTE DI TEMPO
                 time(&start_time);
-                //durata pausa
+                //LIBERO LA MATRICE
                 free(matrice_di_gioco);
+                //COMUNICO CHE BISOGNA GENERARE UN'ALTRO ROUND
                 game_starting = 0;
                 ready = 0;
+                //CAMBIO DI STATO DA STATO DI GIOCO A STATO DI PAUSA, L'ALLARME VERRà ISTANZIATO NEL MAIN
                 game_on = 0;
+                //COMUNICO CHE BISOGNA CHIAMARE LO SCORER
                 score_time = 1;
-                //dico a tutti i thread di mandare i risultati allo scorer
+                //SEMPRE CON LO STESSO MECCANISMO INVIO AI THREAD UN SEGNALE PER DIRLGI DI MANDARE IL RISULTATO ALLO SCORER E COMUNICO AI CLIENT IL TEMPO DI ATTESA
                 Player_List temp = Players;
+                time_string = tempo(DURATA_PAUSA);
                 for(int i = 0;i<Player_Size(Players);i++){
                     pthread_t handler = Player_Peek_Hanlder(temp);
+                    //MANDO UN SIGUSR1 DEFINITO DI SEGUITO
                     SYST(retvalue,pthread_kill(handler,SIGUSR1),"nell'avviso di mandare il punteggio allo scorer");
+                    int fd2 = Player_Retrieve_Socket(temp,handler);
+                    Send_Message(fd2,time_string,MSG_TEMPO_ATTESA);
                     temp = temp->next;
                 }
+                //CREO LO SCORER
                 SYST(retvalue,pthread_create(&scorer,NULL,scoring,NULL),"nella creazione dello scorer");
-                time_string = tempo(DURATA_PAUSA);
-                Player_List tempot = Players;
-                for (int i =0;i<Player_Size(Players);i++){
-                    pthread_t handler = Player_Peek_Hanlder(tempot);
-                    int fd2 = Player_Retrieve_Socket(Players,handler);
-                    Send_Message(fd2,time_string,MSG_TEMPO_PARTITA);
-                    tempot = tempot->next;
-                }
+                SYST(retvalue,pthread_detach(scorer),"nello staccare lo scorere");
+                //STAMPA DI DEBUG
                 printf("game off\n");
                 break;
         }
     }
+    //ARRIVA UN SEGNALE PERSONALIZZATO, LO MANDA IL MAIN DOPO LA ALARM IN STATO DI PAUSA
     if (signum == SIGUSR1){
+        //PREPARO  UNA STRINGA SU CUI SCRIVERE I DATI PER LO SCORER
         char result[13];
+        //STAMPE DI DEBUG
         writef(retvalue,"Partita Conclusa\n");
         writef(retvalue,"entro\n");
+        //PRENDO LA MUTEX
         pthread_mutex_lock(&player_mutex);
+        //PRENDO L'USERNAME DALLA LISTA
         char* username = Player_Retrieve_User(Players,pthread_self());
+        //PRENDO IL PUNTEGGIO
         int points = Player_Retrieve_Score(Players,pthread_self());
+        //RESTITUISCO LA MUTEX
         pthread_mutex_unlock(&player_mutex);
+        //PREPARO IL MESSAGGIO
         sprintf(result,"%s,%d",username,points);
+        //STAMPA DI DEBUG
         writef(retvalue,"score\n");
+        //ACQUISISCO LA MUTEX DELLO SCORER
         pthread_mutex_lock(&scorer_mutex);
+        //INSERISCO NELLA LISTA DELLO SCORER LA STRINGA APPENA COMPOSTA
         WL_Push(&Scoring_List,result);
+        //RESTITUISCO LA MUTEX
         pthread_mutex_unlock(&scorer_mutex);
+        //RESETTO IL PUNTEGGIO
+        pthread_mutex_lock(&player_mutex);
         Player_Update_Score(Players,pthread_self(),-points);
-        score_time = 0;
+        pthread_mutex_unlock(&player_mutex);
     }
+    //ARRIVA UN'ALTRO SEGNALE PERSONALIZZATO, LO MANDA LO SCORER
     if (signum == SIGUSR2){
-        //vai a prendere il client fd in base al gestore
+        //DICO CHE È FINITO IL TEMPO DELLO SCORER
+        score_time = 0;
+        //RECUPERO IL FILE DESCRIPTOR ASSOCIATO PER COMUNICARE CON L'UTENTE ASSOCIATO AL THREAD
         int comm_fd = Player_Retrieve_Socket(Players,pthread_self());
+        //INVIO AL MIO CLIENT IL VINCITORE
+        char* answer = malloc(2048); //= classifica;
+        strcpy(answer,classifica);
+        answer = strtok(answer,":");
+        answer = strtok(NULL,"\t");
+        char mess[buff_size];
+        sprintf(mess,"%s è il vincitore\n",answer);
+
+        writef(retvalue,mess);
+        //INVIO AL MIO CLIENT IL VINCITORE
+        Send_Message(comm_fd,mess,MSG_OK);
+        //INVIO AL MIO CLIENT LA CLASSIFICA
+
         Send_Message(comm_fd,classifica,MSG_PUNTI_FINALI);
-        if (pthread_self() == jester){
-            pthread_exit(NULL);
-        }
     }
 }
 
@@ -219,7 +276,7 @@ int main(int argc, char* argv[]){
     //carico il dizionario in memoria
     Load_Dictionary(Dizionario,parametri_server.file_dizionario);
     writef(retvalue,"server_online\n");
-    
+    //INIZIALIZZO LE MUTEX
     SYST(retvalue,pthread_mutex_init(&player_mutex,NULL),"nell'inizializzazione della player mutex");
     SYST(retvalue,pthread_mutex_init(&client_mutex,NULL),"nell'inizializzazione della client mutex");
     SYST(retvalue,pthread_mutex_init(&scorer_mutex,NULL),"nell'inizializzazione della scorer mutex");
@@ -231,23 +288,32 @@ int main(int argc, char* argv[]){
     //int i =0;
     /*SFRUTTO IL SERVER COME DEALER*/
     while(1){
+        //FINCHÈ IL GIOCO NON PARTE O STA PARTENDO MEMORIZZO IL TEMPO CORRENTE
         if (Player_Size(Players) == 0 && game_starting == 0){
             time(&start_time);
         }
+        //CONTROLLO DI NON AVER GIà PREPARATO UN ROUND
         if (ready == 0){
+            //GENERO UN ROUND
             Generate_Round(&offset);
+            //STAMPA DI DEBUG
             writef(retvalue,matrice_di_gioco);
             printf("\n");
             Print_Matrix(matrice_di_gioco,NUM_ROWS,NUM_COLUMNS,'?');
-            ready = 1;
+            //COSTURISCO IL GRAFO SUL QUALE CERCARE LE PAROLE
             matrice_grafo = Build_Graph(matrice_di_gioco,4,4);
+            //COMUNICO DI AVER PREPARATO IL RUND
+            ready = 1;
         }
+        //ASPETTO IL PRIMO GIOCATORE
         if (Player_Size(Players)>0 && game_starting == 0){
+            //MEMORIZZO L'ISTANTE DI TEMPO
             time(&start_time);
+            //ISTANZIO UN ALLARME
             alarm(DURATA_PAUSA);
+            //COMUNICO CHE IL GIOCO STA PER COMINCIARE
             game_starting = 1;
         }
-        //break;
     }
     return 0;
 }
@@ -263,6 +329,7 @@ void Init_Params(int argc, char*argv[],Parametri* params){
         {"durata", required_argument, 0, OPT_DURATA},
         {"seed", required_argument, 0, OPT_SEED},
         {"diz", required_argument, 0, OPT_DIZ},
+        {0,0,0,0}
     };
 
     /*CONTROLLO PARAMETRI RIGA DI COMANDO*/
@@ -298,9 +365,8 @@ void Init_Params(int argc, char*argv[],Parametri* params){
                 break;
             case '?':
                 // getopt_long già stampa un messaggio di errore
-                printf("Opzione non riconosciuta o mancante di argomento\n");
+                printf("Argomento superfluo ignorato\n");
                 break;
-            default: printf("argomento superfluo ignorato\n");
         }
     }
     if (seed_given == 1 && params->matrix_file != NULL){
@@ -311,6 +377,7 @@ void Init_Params(int argc, char*argv[],Parametri* params){
     return;
 }
 
+//GENERO UN ROUND
 void Generate_Round(int* offset){
     int retvalue;
     //controllo se l'utente mi ha passato il file contenente le matrici
@@ -338,11 +405,17 @@ void Generate_Round(int* offset){
     return;
 }
 
+//CARICO IL DIZIONARIO IN MEMORIA
 void Load_Dictionary(Trie* Dictionary, char* path_to_dict){
+    //APRO IL FILE TRAMITE IL PATH
     FILE* dict = fopen(path_to_dict,"r");
+    //CREO UNA VARIABILE PER MEMORIZZARE LE PAROLE
     char word[256];
+    //LEGGO TUTTO IL FILE
     while(fscanf(dict,"%s",word)!=EOF){
+        //STANDARDIZZO LE PAROLE DEL DIZIONARIO METTENDOLE IN UPPERCASE
         Caps_Lock(word);
+        //INSERISCO LA PAROLA NEL TRIE
         insert_Trie(Dizionario,word);
     }
     return;
@@ -427,11 +500,6 @@ void* Thread_Handler(void* args){
         while (game_on !=1 && parole_indovinate !=NULL){
             //RIMUOVO LE PAROLE INDOVINATE UNA PER VOLTA
             WL_Pop(&parole_indovinate);
-            //AZZERO IL PUNTEGGIO
-            points = 0-Player_Retrieve_Score(Players,pthread_self());
-            //AGGIORNO IL PUNTEGGIO
-            Player_Update_Score(Players,pthread_self(),points);
-           
         }
 
         //ATTENDO L'INPUT DALL'UTENTE
@@ -458,7 +526,7 @@ void* Thread_Handler(void* args){
 
 //SCELGO L'AZIONE IN BASE ALL'INPUT UTENTE
 void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed,int* points){
-    char *time_string,* username,*input_cpy = malloc(strlen(input)),mess[buff_size];
+    char *time_string,* username,mess[buff_size];
     int punteggio;
     //CONTROLLO IL TIPO DEL MESSAGGIO
     switch(type){
