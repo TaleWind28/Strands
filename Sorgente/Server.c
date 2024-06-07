@@ -86,11 +86,11 @@ int PORT;
 int game_on = 0,ready = 0,game_starting,client_attivi = 0,score_time = 0; 
 char classifica[2048];
 int server_fd,client_fd;
-time_t start_time,end_time;
+time_t start_time;
 pthread_t jester,scorer,main_tid;
 
 
-/*MAIN DEL PROGRAMMA*/
+
 void gestore_segnale(int signum) {
     int retvalue;
     if (signum == SIGINT){
@@ -130,7 +130,7 @@ void gestore_segnale(int signum) {
         char* time_string;
         switch(game_on){
             case 0:
-                start_time = end_time; 
+                time(&start_time);
                 //istanzio un allarme in base al parametro che mi viene passato
                 alarm(parametri_server.durata_partita);
                 //creo la stringa temporale
@@ -148,8 +148,7 @@ void gestore_segnale(int signum) {
                 printf("game on\n");
                 break;
             case 1:
-                time(&end_time);
-                start_time = end_time;
+                time(&start_time);
                 //durata pausa
                 free(matrice_di_gioco);
                 game_starting = 0;
@@ -202,6 +201,7 @@ void gestore_segnale(int signum) {
     }
 }
 
+/*MAIN DEL PROGRAMMA*/
 int main(int argc, char* argv[]){
     /*DICHIARAZIONE VARIABILI*/
     int retvalue;
@@ -231,6 +231,9 @@ int main(int argc, char* argv[]){
     //int i =0;
     /*SFRUTTO IL SERVER COME DEALER*/
     while(1){
+        if (Player_Size(Players) == 0 && game_starting == 0){
+            time(&start_time);
+        }
         if (ready == 0){
             Generate_Round(&offset);
             writef(retvalue,matrice_di_gioco);
@@ -345,28 +348,11 @@ void Load_Dictionary(Trie* Dictionary, char* path_to_dict){
     return;
 }
 
-int Check_Words(char* string,off_t* offset, int file_descriptor){
-    //char* stringcpy = strcpy(stringcpy,string);
-    off_t cnt;
-    for(int i = 0;i<strlen(string);i++){
-        if (string[i] == '\n'){
-            char* token = strtok(string,"\n");
-            insert_Trie(Dizionario,token);
-            cnt=0;
-        }
-        cnt++;
-    }
-    if (cnt == 1)return 0;
-    *offset -= cnt;
-    lseek(file_descriptor,*offset,SEEK_SET);
-    return 0;   
-}
-
 /*THREAD CHE GESTISCE UN CLIENT*/
 void* Thread_Handler(void* args){
     /*DICHIARAZIONE VARIABILI*/
-    int retvalue,points = 0;char type = '0';char* input;char* username;
-    /*RECUPERO IL VALORE PASSATO AL THREAD NELLA PTHREAD CREATE*/
+    int retvalue,points = 0, exists = 0;;char type = '0';char* input;char* username;
+    /*RECUPERO IL FILE DESCRIPTOR PASSATO AL THREAD NELLA PTHREAD CREATE PER POTER COMUNICARE COL CLIENT*/
     int client_fd = *(int*) args;
     Word_List parole_indovinate = NULL;
     pthread_mutex_lock(&client_mutex);
@@ -376,193 +362,209 @@ void* Thread_Handler(void* args){
         Send_Message(client_fd,"Ci scusiamo per il disagio ma il server al momento è pieno\n",MSG_CHIUSURA_CONNESSIONE);
         L_Pop(&Client_List);
         pthread_mutex_unlock(&client_mutex);
-        //close(client_fd);
         return NULL;
-        //Send_Message(client_fd,"Chiusura",MSG_CHIUSURA_CONNESSIONE);
     }
+    //RILASCIO LA MUTEX
     pthread_mutex_unlock(&client_mutex);
-   
+    
+    //INVIO AL CLIENT UN MESSAGGIO DI BENVENUTO
     Send_Message(client_fd,WELCOME_MESSAGE,MSG_OK);
-    //accetto solo la registrazione dell'utente
-    username = Receive_Message(client_fd,&type);
     
-    //controllo che l'username sia valido
-    int exists = Player_Find_Word(Players,username);
-    
-    while((type != MSG_REGISTRA_UTENTE && type != MSG_CHIUSURA_CONNESSIONE) || exists == 0 || strlen(username)>10){
-        free(username);
-        if(strlen(username)>10)Send_Message(client_fd,"Username troppo lungo\n",MSG_ERR);
-        if (exists == 0)Send_Message(client_fd,"Username già presente\n",MSG_ERR);
-        else Send_Message(client_fd,"Inserisci il comando registra utente\n",MSG_ERR);
+    //ASPETTO CHE IL CLIENT MI INVII UN MESSAGGIO DI REGISTRAZIONE
+    while(type != MSG_REGISTRA_UTENTE  || exists == 0 || strlen(username)>10){
+        //RICEVO IL DATO DEL CLIENT
         username = Receive_Message(client_fd,&type);
+        //CONTROLLO CHE NON CI SIA GIà
         exists = Player_Find_Word(Players,username);
+        //CONTROLLO CHE IL MESSAGGIO NON SIA DI CHIUSURA
+        if (type == MSG_CHIUSURA_CONNESSIONE){
+            //STAMPA DI DEBUG
+            writef(retvalue,"chiusura player\n");
+            //ACQUISISCO LA MUTEX
+            pthread_mutex_lock(&client_mutex);
+            //RIMUOVO IL CLIENT DALLA LISTA
+            L_Splice(&Client_List);
+            //RILASCIO LA MUTEX
+            pthread_mutex_unlock(&client_mutex);
+            //TERMINO IL THREAD
+            return NULL;
+        }
+        //CONTROLLO DI AVER RICEVUTO UN MESSAGGIO DI REGISTRAZIONE
+        if (type!= MSG_REGISTRA_UTENTE){Send_Message(client_fd,"Inserisci il comando registra utente\n",MSG_ERR);free(username);continue;}
+        //CONTROLLO CHE L'USERNAME NON SIA TROPPO LUNGO
+        if(strlen(username)>10){Send_Message(client_fd,"Username troppo lungo\n",MSG_ERR);free(username);continue;}
+        //CONTROLLO CHE L'USERNAME NON SIA GIà PRESENTE
+        else if (exists == 0){Send_Message(client_fd,"Username già presente\n",MSG_ERR);free(username);continue;}
     }
-    if (type == MSG_CHIUSURA_CONNESSIONE){
-        writef(retvalue,"chiusura player\n");
-        
-        pthread_mutex_lock(&client_mutex);
-        L_Splice(&Client_List);
-        pthread_mutex_unlock(&client_mutex);
-        
-        return NULL;
-    }
+    //ACQUISISCO LA MUTEX PER REGISTRARE L'UTENTE
+    pthread_mutex_lock(&player_mutex);
+    //INSERISCO L'UTENTE NELLA LISTA
+    Player_Push_Thread(&Players,username,client_fd);
+    //RILASCIO LA MUTEX
+    pthread_mutex_unlock(&player_mutex);
+    //COMUNICO AL CLIENT CHE LA REGISTRAZIONE È ANDATA A BUON FINE
     Send_Message(client_fd,"Registrazione avvenuta con successo\n",MSG_OK);
+    //COMUNICO LE REGOLE AL CLIENT
     Send_Message(client_fd,RULES,MSG_OK);
     char* time_string;
+    //CONTROLLO LO STATO DEL GIOCO
     if (game_on == 1){
-        //char* matrix_to_send = Stringify_Matrix(matrice_di_gioco);
+        //SE IL GIOCO È IN CORSO INVIO LA MATRICE INSIEME AL TEMPO
         Send_Message(client_fd,matrice_di_gioco,MSG_MATRICE);
         time_string = tempo(parametri_server.durata_partita);
         Send_Message(client_fd,time_string,MSG_TEMPO_PARTITA);
     }else{
-        // time(&start_time);
+        //ALTRIMENTI SIAMO IN PAUSA QUINDI INVIO SOLO IL TEMPO
         time_string = tempo(DURATA_PAUSA);
         Send_Message(client_fd,time_string,MSG_TEMPO_ATTESA);
     }
     free(time_string);
-    /*REGISTRO L'UTENTE NELLA TABELLA DEI GIOCATORT*/
-    //aspetto la mutex per evitare race condition
-    pthread_mutex_lock(&player_mutex);
-    //inserisco player
-    Player_Push_Thread(&Players,username,client_fd);
-    //rilascio la mutex
-    pthread_mutex_unlock(&player_mutex);
-    //inizio a giocare
+    
+    //INIZIO A GIOCARE CON L'UTENTE
     while(type != MSG_CHIUSURA_CONNESSIONE){
+        
+        //CONTROLLO DI ESSERE IN PAUSA E CHE LA LISTA DI PAROLE NON SIA VUOTA PER SVUOTARE LA LISTA DI PAROLE
         while (game_on !=1 && parole_indovinate !=NULL){
+            //RIMUOVO LE PAROLE INDOVINATE UNA PER VOLTA
             WL_Pop(&parole_indovinate);
+            //AZZERO IL PUNTEGGIO
             points = 0-Player_Retrieve_Score(Players,pthread_self());
+            //AGGIORNO IL PUNTEGGIO
             Player_Update_Score(Players,pthread_self(),points);
+           
         }
 
-        //prendo l'input dell'utente
+        //ATTENDO L'INPUT DALL'UTENTE
         input = Receive_Message(client_fd,&type);
-        //Gioco con l'utente
+        
+        //RISPONDO ALL'INPUT
         Choose_Action(client_fd,type,input,&parole_indovinate,&points);
-        //libero l'input per il prossimo ciclo
+        
+        //LIBERO L'INPUT PER IL PROSSIMO CICLO
         free(input);
     }
-    //aspetto la mutex per eitare race condition
+    //ACQUISISCO LA MUTEX PER ACCEDERE ALLA LISTA DI GIOCATORI
     pthread_mutex_lock(&player_mutex);
-    //writef(retvalue,username);
-    //rimuovo il player
+    //RIMUOVO IL GIOCATORE
     Player_Splice(&Players,username);
-    //stampa per debug
-    //Print_WList(Players);
-    //rilascio la mutex per evitare il deadlock
+    //RILASCIO LA MUTEX
     pthread_mutex_unlock(&player_mutex); 
 
     //stampa di debug
     writef(retvalue,"fine player\n");
-    
-    /*chiusura del socket*/
-    //SYSC(retvalue,close(client_fd),"chiusura client-fake");
+
     return NULL;
 }
 
+//SCELGO L'AZIONE IN BASE ALL'INPUT UTENTE
 void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed,int* points){
-    char *time_string;
-    char*input_cpy = malloc(strlen(input));
-    char* username;
-    char* mess = malloc(35);
+    char *time_string,* username,*input_cpy = malloc(strlen(input)),mess[buff_size];
     int punteggio;
-    //int retvalue;
+    //CONTROLLO IL TIPO DEL MESSAGGIO
     switch(type){
+        //MI HANNO RICHIESTO LA MATRICE
         case MSG_MATRICE:
+            //SE LA PARTITA È IN PAUSA NON POSSO MANDARLA
             if(game_on !=1){
+                //MANDO SOLO IL TEMPO DI ATTESA
                 time_string = tempo(DURATA_PAUSA);
                 Send_Message(comm_fd,time_string,MSG_TEMPO_ATTESA);
                 return;
-            }//invia il tempo di attesa
+            }
             printf("game_on:%d\n",game_on);
-            //trasforma la matrice in una stringa
-            //matrix = Stringify_Matrix(matrice_di_gioco);
-            //invio la matrice sotto forma di stringa al client
+            //INVIO LA MATRICE AL CLIENT
             Send_Message(comm_fd,matrice_di_gioco,MSG_MATRICE);
-            //free(matrix);
+            //E SUCCESSIVAMENTE INVIO IL TEMPO RIMANENTE
             time_string = tempo(parametri_server.durata_partita);
             Send_Message(comm_fd,time_string,MSG_TEMPO_PARTITA);
             return;
-
+        //MI HANNO INVIATO UNA PAROLA
         case MSG_PAROLA:
-            
+            //SE LA PARTITA È IN CORSO LA ACCETTO
             if (game_on != 1){Send_Message(comm_fd,"Non puoi sottomettere parole perchè la partita deve ancora cominciare\n",MSG_ERR);return;}
-            //accetto solo parole lunghe più di 4 caratteri
+            //VENGONO ACCETTATE SOLO PAROLE LUNGHE ALMENO 4 CARATTERI
             if (strlen(input)<4) {Send_Message(comm_fd,"Parola troppo corta\n",MSG_ERR);return;}
-            //salvo l'input in una copia per non distruggere la stringa originale
-            strcpy(input_cpy,input);
-
-            //rimuovo il carattere speciale dalla stringa
-            Replace_Special(input_cpy,'Q');
-
-            // //controllo se la parola è componibile nella matrice
-            // if (Validate(matrice_di_gioco,input_cpy)!=0){Send_Message(comm_fd,"Parola Illegale su questa matrice\n",MSG_ERR);return;}
-            if (dfs(matrice_grafo,input_cpy)!=true){Send_Message(comm_fd,"Parola Illegale su questa matrice\n",MSG_ERR);return;}
-            //controllo parole già indovinate/*questo costa meno che cercare nel dizionario,però vva fatto in parallelo col pignoler*/
-            if(WL_Find_Word(*already_guessed,input)==0){Send_Message(comm_fd,"Parola già inserita, 0 punti\n",MSG_PUNTI_PAROLA);return;}
-            
-            //controllo lessicale
+            //CONTROLLO CHE LA APROLA ESISTA IN ITALIANO, FACCIO PRIMA QUESTO CONTROLLO PERCHÈ COSTA AL MASSIMO LA LUNGHEZZA DELLA PAROLA -> È PIù VELOCE DELLA DFS AL CASO PESSIMO
             if(search_Trie(input,Dizionario)==-1){Send_Message(comm_fd,"la parola non esiste in italiano\n",MSG_ERR);return;}
-            
-            //inserisco la parola indovinata nella lista
+            //RIMPIAZZO LA Qu DELLA STRINGA CON UN CARATTERE SPECIALE
+            Replace_Special(input,'Q');
+            //CONTROLLO SE LA PAROLA È GIà STATA INDOVINATA, LO FACCIO PRIMA DELLA DFS SEMPRE PER MINIMIZZARE LE RICERCHE AL CASO PESSIMO
+            if(WL_Find_Word(*already_guessed,input)==0){Send_Message(comm_fd,"Parola già inserita, 0 punti\n",MSG_PUNTI_PAROLA);return;}
+            //CONTROLLO SE LA PAROLA È COMPONIBILE NELLA MATRICE TRAMITE UNA DFS
+            if (dfs(matrice_grafo,input)!=true){Send_Message(comm_fd,"Parola Illegale su questa matrice\n",MSG_ERR);return;}
+            //INSERISCO LA PAROLA TRA QUELLE INDOVINATE
             WL_Push(already_guessed,input);
-            //comunico al client che la parola era corretta insieme al punteggio
+            //COMUNICO AL CLIENT CHE LA PAROLA ERA CORRETTA E GLI RESTITUISCO IL PUNTEGGIO
             char message[buff_size];
-            //aumento i punti
-            Player_Update_Score(Players,pthread_self(),strlen(input_cpy));
-            //calcolo i punti in base alla lunghezza della stringa
-            sprintf(message,"Complimenti la parola che hai inserito vale %ld punti\n",strlen(input_cpy));
-            //aggiorno il punteggio dell'utente
-            //invio all'utente il messaggio con i suoi punti
+            //AGGIORNO IL PUNTEGGIO DEL GIOCATORE
+            Player_Update_Score(Players,pthread_self(),strlen(input));
+            //CALCOLO I PUNTI IN BASE ALLA LUNGHEZZA DELLA STRINGA, QUESTO VIENE FATTO ANCHE PRIMA MA NON VIENE SALVATO IN UNA VARIABILE
+            sprintf(message,"Complimenti la parola che hai inserito vale %ld punti\n",strlen(input));
+            //INVIO ALL'UTENTE UN MESSAGGIO COI PUNTI
             Send_Message(comm_fd,message,MSG_PUNTI_PAROLA);
-            free(input_cpy);
             return;
-
+        //VOGLIONO REGISTRARSI DI NUOVO
         case MSG_REGISTRA_UTENTE:
-            //dico all'utente che non serve registrarsi ulteriormente
-            Send_Message(comm_fd,"Utente già Registrato\n",MSG_ERR);
+            //RECUPERO IL NOME UTENTE USATO PER LA REGISTRAZIONE
+            sprintf(mess,"Caro utente sei già registrato col nome %s\n",Player_Retrieve_User(Players,pthread_self()));
+            //COMUNICO GENTILMENTE ALL'UTENTE CHE SI È GIà REGISTRATO 
+            Send_Message(comm_fd,mess,MSG_ERR);
+            //free(mess);
             return; 
-
+        //VOGLIONO USCIRE DAL GIOCO
         case MSG_CHIUSURA_CONNESSIONE:
-            //Send_Message(comm_fd,"ok",MSG_OK);
+            //RECUPERO L'USERNAME DALLA LISTA
             username = Player_Retrieve_User(Players,pthread_self());
-            //fare lock
-            pthread_mutex_lock(&player_mutex);
+            //ELIMINO L'UTENTE DALLA LISTA
             Player_Splice(&Players,username);
+            //RESTITUISCO LA MUTEX
             pthread_mutex_unlock(&player_mutex);
+            //ACQUISISCO LA MUTEX
+            pthread_mutex_lock(&client_mutex);
+            //RIMUOVO IL CLIENT DALLA LISTA
             L_Splice(&Client_List);
-            //togliere lock;
+            //RESTITUISCO LA MUTEX
+            pthread_mutex_unlock(&client_mutex);
+            //STAMPA DI DEBUG
             printf("ammazzato\n");
-            //SYSC(retvalue,listen(server_fd,1),"nell'aggiunta di una connessione");
-            //non mando niente al client perchè potrebbe non essere più aperto il file descriptor di comunicazione
             return;
-        
+        //MI HANNO CHIESTO IL PUNTEGGIO
         case MSG_PUNTEGGIO:
-            
+            //RECUPERO IL PUNTEGGIO
             punteggio = Player_Retrieve_Score(Players,pthread_self());
+            //PREPARO IL MESSAGGIO COL PUNTEGGIO
             sprintf(mess,"il tuo punteggio attuale è %d\n",punteggio);
+            //INVIO AL CLIENT IL PUNTEGGIO
             Send_Message(comm_fd,mess,MSG_PUNTEGGIO);
-            free(mess);
+            //LIBERO IL MESSAGGIO
+            //free(mess);
             return ;
+        //MI HANNO CHIESTO LA CLASSIFICA
         case MSG_PUNTI_FINALI:
+            //INVIO AL CLIENT LA CLASSIFICA
             Send_Message(comm_fd,classifica,MSG_PUNTI_FINALI);
     }
 }
-
+//RIMPIAZZO UN CARATTERE CON IL CARATTERE SPECIALE
 void Replace_Special(char* string,char special){
+    //MEMORIZZO LA LUNGHEZZA DELLA STRINGA
     int len = strlen(string);
     int j = 0;
+    //CICLO SUI CARATTERI DELLA STRINGA
     for(int i =0;i<len;i++){
+        //FINCHÈ NON RILEVO IL CARATTERE DA SOSTITUIRE MEMORIZZO NORMALMENTE
         if (string[i] != special){
             string[j++] = string[i];
         }else{
+            //APPENA LO RILEVO INSERISCO UN CARATTERE SPECIALE
             string[j++] = '?';
-            printf("carattere:%c\n",string[j]);
             i++;
         }
     }
+    //TERMINO LA STRINGA
     string[j] = '\0';
-    printf("carattere:%s\n",string);
+    //STAMPA DI DEBUG
+    printf("parola:%s\n",string);
     return;
 }
 
@@ -571,7 +573,6 @@ void* Gestione_Server(void* args){
     /*dichiarazione variabili*/
     int retvalue;
     pthread_t client_thread[MAX_NUM_CLIENTS];
-    //pthread_t acceptance_thread;
     struct sockaddr_in server_address, client_address;
     socklen_t client_length = sizeof(client_address);
 
@@ -590,16 +591,14 @@ void* Gestione_Server(void* args){
     SYSC(retvalue,listen(server_fd,MAX_NUM_CLIENTS),"nella listen");
     int i = 0;
     //accettazione dei client
-        while(1){
-            if (i == MAX_NUM_CLIENTS)i = 0; 
-            /*accettazione delle richieste*/
-            SYSC(client_fd,accept(server_fd,(struct sockaddr*)&client_address,&client_length),"nella accept");
-            //client_attivi++;
-            /*DISPATCHING DI UN THREAD PER GESTIRE LA TRANSAZIONE*/
-            SYST(retvalue,pthread_create(&client_thread[i],NULL,Thread_Handler,&client_fd),"dispatching dei thread");
-            //SYST(retvalue,pthread_detach(client_thread[i]),"nella detach");
-            i++;
-        }
+    while(1){
+        if (i == MAX_NUM_CLIENTS)i = 0; 
+        /*accettazione delle richieste*/
+        SYSC(client_fd,accept(server_fd,(struct sockaddr*)&client_address,&client_length),"nella accept");
+        /*DISPATCHING DI UN THREAD PER GESTIRE LA TRANSAZIONE*/
+        SYST(retvalue,pthread_create(&client_thread[i],NULL,Thread_Handler,&client_fd),"dispatching dei thread");
+        i++;
+    }
     return NULL;
 }
 
@@ -608,7 +607,7 @@ void Init_SIGMASK(){
     struct sigaction azione_SIGINT;
     sigset_t maschera_segnale;
     sigemptyset(&maschera_segnale);
-    //maschera seganle per SIGINT
+    //GGIUNGO IL SET PER SIGIINT SIGALARM SIGUSR1 E SIGUSR2
     SYSC(retvalue,sigaddset(&maschera_segnale,SIGINT),"aggiunta SIGINT alla maschera");
     SYSC(retvalue,sigaddset(&maschera_segnale,SIGALRM),"aggiunta di SIGALARM alla maschera");
     SYSC(retvalue,sigaddset(&maschera_segnale,SIGUSR1),"aggiunta di SIGUSR1 alla maschera");
@@ -625,24 +624,28 @@ void Init_SIGMASK(){
     sigaction(SIGUSR2,&azione_SIGINT,NULL);
     return;
 }
-
+//FUNZIONE PER USARE IL QSORT
 int compare(const void *a, const void *b) {
+    //CREO 2 GIOCATORI DA CONFRONTARE
     giocatore *playerA = (giocatore *)a;
     giocatore *playerB = (giocatore *)b;
+    //ORDINO IN ORDINE CRESCENTE
     if(playerB->points<playerA->points)return -1;
     else return 1;
 }
-
+//THREAD SCORER
 void* scoring(void* args){
+    //INIZIALIZZO UNA VARIABILE CONTATORE
     int cnt = 0;
-    //int score[MAX_NUM_CLIENTS];
+    //MEMORIZZO LA SIZE DEI GIOCATORI
+    pthread_mutex_lock(&player_mutex);
     int size = Player_Size(Players);
+    pthread_mutex_unlock(&player_mutex);
     giocatore global_score[size];
-    //printf("hey\n");
+    //SVUOTO LA CLASSIFICA
     memset(classifica,0,strlen(classifica));
-    while (1){
-        //controllo di aver ricevuto tutti i dati
-        if (cnt == size)break;
+    
+    while (cnt != size){
         //aspetta che la coda abbia degli elementi da prendere
         if (WL_Size(Scoring_List)>0){
             //acquisisce mutex
@@ -662,29 +665,47 @@ void* scoring(void* args){
     }
     //ordina l'array in base al più forte
     qsort(global_score,size, sizeof(giocatore), compare);
-    char msg[1024];
+    //AVENDO AL MASSIMO 32 GIOCATORI AVREMMO PER OGNI GIOCATORE 5(user)+10(username)+10(punteggio)+1(score) = 28 CARATTERI AL MASSIMO QUINDI IL NUMERO MAX È 28*32 = 896 MA NON MI FIDO DEI MIEI CONTI QUINDI ALLOCO 1024
+    char msg[32];
+    //CREO LA STRINGA DELLA CLASSIFICA
     for(int i =0;i<cnt;i++){
-        sprintf(msg,"user:%s\tpunteggio:%d\t\n",global_score[i].username,global_score[i].points);
+        sprintf(msg,"user:%s\tpunteggio:%d\n",global_score[i].username,global_score[i].points);
+        //CONCATENO LA STRINGA ALLA CLASSIFICA
         strcat(classifica,msg);
-        //printf("%s\n",classifica);
     }
+    printf("Classifica pronta\n");
     int retvalue;
+    //ACQUISISCO LA MUTEX
     pthread_mutex_lock(&player_mutex);
+    //CREO UNA COPIA DELLA LISTA
     Player_List temp = Players;
+    //RESTITUISCO LA MUTEX
     pthread_mutex_unlock(&player_mutex);
-    for(int i = 0;i<Player_Size(Players);i++){
+    //COMUNICO A TUTTI I THREAD CHE LA CLASSIFICA È PRONTA
+    for(int i = 0;i<size;i++){
+        //RECUPERO L'HANDLER
         pthread_t handler = Player_Peek_Hanlder(temp);
+        //SCORRO LA LISTA
         temp = temp->next;
+        //INVIO IL SENGALE AL THREAD
         SYST(retvalue,pthread_kill(handler,SIGUSR2),"nell'avviso di mandare il punteggio allo scorer");
     }
+    //TERMINO LO SCORER
     return NULL;
 }
 
+//FUNZIONE CHE CALCOLA IL TEMPO RESTANTE
 char* tempo(int max_dur){
+    time_t end_time;
+    //MEMORIZZA IL TEMPO ATTUALE
     time(&end_time);
+    //CALCOLA LA DIFFERENZA TRA GLI ISTANTI DI TEMPO
     double elapsed = difftime(end_time,start_time);
+    //CALCOLA QUANTO TEMPO RIMANE
     double remaining = max_dur-elapsed; //+ 3;  
     char* mess = malloc(256);
+    //PREPARA UN MESSAGGIO CON DENTRO I SECONDI RIMANENTI
     sprintf(mess,"%.0f secondi\n",remaining);
+    //E LO RITORNA
     return mess;
 }
