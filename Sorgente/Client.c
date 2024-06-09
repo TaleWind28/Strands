@@ -24,6 +24,7 @@ int client_fd;
 void* bounce(void* args);
 void* trade(void* args);
 pthread_t bouncer,merchant,main_tid;
+int unwanted_termination = 0;
 char* matrice;
 int only_space_string(char* string);
 
@@ -174,9 +175,16 @@ void* bounce(void* args){
 
             case MSG_CHIUSURA_CONNESSIONE:
                 writef(retvalue,answer);
+                if (unwanted_termination == 1)return NULL;
                 //mando un SIGUSR1 al thread principale
                 SYST(retvalue,pthread_kill(merchant,SIGUSR1),"nell'avvisare il mercante della chiusura");
                 return NULL;
+            case MSG_SIGINT:
+                writef(retvalue,answer);
+                writef(retvalue,"non sarà possibile digitare altri comandi, ci scusiamo per il disagio\n");
+                unwanted_termination = 1;
+                SYST(retvalue,pthread_kill(merchant,SIGUSR1),"nell'avvisare il mercante della chiusura");
+                //return NULL;
         }
         //free(answer);
         writef(retvalue,"[PROMPT PAROLIERE]--> ");
