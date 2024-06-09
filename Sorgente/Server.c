@@ -124,20 +124,6 @@ void gestore_segnale(int signum) {
         }
         //RESTITUISCO LA MUTEX
         pthread_mutex_unlock(&player_mutex);
-        
-        //ammazza tutti i client
-        
-        //USO LA STESSA PRICEDURA PER COMUNICARE LA CHIUSURA AI CLIENT
-        // while (Client_List!=NULL){
-        //     //RECUPERO IL FILE DESCRIPTOR DEL CLIENT
-        //     int death_sentence = L_Pop(&Client_List);
-        //     //GLI INVIO UN MESSAGIGO DI CHIUSURA
-        //     Send_Message(death_sentence,"Ci scusiamo per il disagio ma dobbiamo terminare le attività, Grazie per aver Giocato\n",MSG_SIGINT);
-        //     //Send_Message(death_sentence,"Chiusura Client\n",MSG_CHIUSURA_CONNESSIONE);
-        //     //STAMPA DI DEBUG
-        //     writef(retvalue,"ammazzato\n");
-        // }
-        //pthread_mutex_unlock(&client_mutex);
         //IN CASO ABBIA AVVIATO LO SCORER LO TERMINO
         if (score_time == 1 && unwanted_termination == 0)SYST(retvalue,pthread_cancel(scorer),"AMMAZZAVO LO SCORER");
         //writef(retvalue,"ammazzati tutti\n");
