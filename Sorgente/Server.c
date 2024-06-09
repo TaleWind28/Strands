@@ -29,7 +29,7 @@
 #define NUM_COLUMNS 4
 #define DIZIONARIO "../Text/Dizionario.txt"
 #define MATRICI "../Text/Matrici.txt"
-#define DURATA_PAUSA  2//60 secondi
+#define DURATA_PAUSA 2 //60 secondi
 /*usata per debugging*/
 //#define DURATA_PARTITA 5//60 secondi
 #include <stdio.h>
@@ -99,14 +99,19 @@ void gestore_segnale(int signum) {
         if (pthread_self() != main_tid)return;
         //TERMINO IL THREAD CHE GESTISCE LE CONNESSIONI DEI CLIENT
         SYST(retvalue,pthread_cancel(jester),"nell'ammazzamento del jester");
-        //PROVOCO LA TERMINAZIONE DELLA PARTITA PER STILARE LA CLASSIFICA
-        if (game_on == 1){
+        //IMPEDISCO AL SERVER DI ASCOLTARE I MESSAGGI DAI CLIENT
+        SYSC(retvalue,shutdown(server_fd,SHUT_RD),"nello shutdown"); 
+        //CONTROLLO LO STATO DEL SERVER
+        if (game_on == 1 && score_time == 0){
+        //SE LA PARTITA È IN CORSO LA TERMINO PER STILARE LA CLASSIFICA
             unwanted_termination = 1;    
+            //GENERO UN SIGALARM
             alarm(1);
-            
+            //STAMPA DI DEBUG
             printf("mandato alarma\n");
+            //CREO LO SCORER
             pthread_create(&scorer,NULL,scoring,NULL);
-            //pthread_kill(main_tid,SIGALRM);
+            //E LO ASPETTO
             pthread_join(scorer,NULL);
         }
         //ammazza tutti i thread dei client
@@ -115,20 +120,33 @@ void gestore_segnale(int signum) {
         while(Players!=NULL){
             //RECUPERO IL GESTORE
             pthread_t handler = Player_Peek_Hanlder(Players);
-            //LO TERMINO
-            SYST(retvalue,pthread_join(handler,NULL),"nell'attesa dei vari handler");
-            printf("ciao\n");
-            //SYST(retvalue,pthread_cancel(handler),"nell'ammazzamento dei vari handler");
+            //SE LA TERMINAZIONE AVVIENE IN PAUSA CANCELLO SEMPLICEMENTE IL THREAD, SENNò ASPETTO CHE COMUNICHI AL CLIENT LA CLASSIFICA
+            if (unwanted_termination == 1){ SYST(retvalue,pthread_join(handler,NULL),"nell'attesa dei vari handler");}
+            else pthread_cancel(handler);
             //ELIMINO IL GIOCATORE
             Player_Pop(&Players);
         }
         //RESTITUISCO LA MUTEX
         pthread_mutex_unlock(&player_mutex);
+        //SE LA TERMINAZIONE AVVIENE IN STATO DI PAUSA DEVO PULIRE LA LISTA DI CLIENT
+        if (unwanted_termination == 0){
+            //ACQUISISCO LA MUTEX
+            pthread_mutex_lock(&client_mutex);
+            //ELIMINO TUTTI I CLIENT
+            while(Client_List!= NULL){
+                //RECUPERO IL FILE DESCRIPTOR PER COMUNICARE AL CLIENT LA CHIUSURA
+                int death_sentence = L_Pop(&Client_List);
+                //COMUNICO AL CLIENT LA CHIUSURA
+                Send_Message(death_sentence,"Ci scusiamo per il disagio ma abbiamo risscontrato dei problemi e dobbiamo chiudere la connessione\nGrazie per aver Giocato\n",MSG_CHIUSURA_CONNESSIONE);
+            }
+            //RESTITUISCO LA MUTEX
+            pthread_mutex_unlock(&client_mutex);
+        }
         //IN CASO ABBIA AVVIATO LO SCORER LO TERMINO
         if (score_time == 1 && unwanted_termination == 0)SYST(retvalue,pthread_cancel(scorer),"AMMAZZAVO LO SCORER");
         //writef(retvalue,"ammazzati tutti\n");
         printf("alla fine rimase solo il server\n");
-        SYSC(retvalue,shutdown(server_fd,SHUT_RDWR),"nello shutdown"); 
+        
         SYSC(retvalue,close(server_fd),"chiusura dovuta a SIGINT");
         writef(retvalue,"terminazione dovuta a SIGINT\n");
         exit(EXIT_SUCCESS);
@@ -254,17 +272,22 @@ void gestore_segnale(int signum) {
         Send_Message(comm_fd,mess,MSG_OK);
         //INVIO AL MIO CLIENT LA CLASSIFICA
         Send_Message(comm_fd,classifica,MSG_PUNTI_FINALI);
+        //SE IL GIOCO STA TERMINANDO A CASUA DI UN SIGINT
         if(unwanted_termination == 1){
-           // Send_Message(comm_fd,"Ci scusiamo per il disagio ma il gioco deve terminare\n",MSG_SIGINT);
+           
             //rimuovo il mio client dalla lista
+            //ACQUISISCO LA MUTEX
             pthread_mutex_lock(&client_mutex);
+            //RIMUOVO IL MIO CLIENT DALLA LISTA
             L_Splice(&Client_List);
+            //RESTITUISCO LA MUTEX
             pthread_mutex_unlock(&client_mutex);
+            //STAMPA DI DEBUG
             writef(retvalue,"ammazato\n");
-        
+            //COMUNICO AL CLIENT DI CHIUDERE LA CONNESSIONE
             Send_Message(comm_fd,"Grazie per aver Giocato\n",MSG_CHIUSURA_CONNESSIONE);
+            //TERMINO L'ESECUZIONE
             pthread_exit(NULL);
-            
             }
     }
 }
