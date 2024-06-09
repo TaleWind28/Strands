@@ -1,5 +1,5 @@
 #define _XOPEN_SOURCE 700
-
+//File header di libreria
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,19 +17,21 @@
 #include <getopt.h>
 #include <time.h>
 #include <signal.h>
-
+//File Header "Personali"
 #include "../Header/macro.h"
 #include "../Header/Matrix.h"
 #include "../Header/Stack.h"
 #include "../Header/Communication.h"
 #include "../Header/Trie.h"
 
+//Numero Massimo Client Attivi Contemporaneamente
 #define MAX_NUM_CLIENTS 32
 #define NUM_ROWS 4
 #define NUM_COLUMNS 4
+//Path al dizionario di Default
 #define DIZIONARIO "../Text/Dizionario.txt"
-#define MATRICI "../Text/Matrici.txt"
-#define DURATA_PAUSA 2 //60 secondi
+
+#define DURATA_PAUSA 60 //60 secondi
 /*usata per debugging*/
 //#define DURATA_PARTITA 5//60 secondi
 #include <stdio.h>
