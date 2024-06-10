@@ -31,7 +31,7 @@
 //Path al dizionario di Default
 #define DIZIONARIO "../Text/Dizionario.txt"
 
-#define DURATA_PAUSA 60 //60 secondi
+#define DURATA_PAUSA 1 //60 secondi
 /*usata per debugging*/
 //#define DURATA_PARTITA 5//60 secondi
 #include <stdio.h>
@@ -265,7 +265,7 @@ void gestore_segnale(int signum) {
         char* answer = malloc(2048); //= classifica;
         strcpy(answer,classifica);
         answer = strtok(answer,":");
-        answer = strtok(NULL,"\t");
+        answer = strtok(NULL," ");
         char mess[buff_size];
         sprintf(mess,"%s è il vincitore\n",answer);
         writef(retvalue,mess);
@@ -676,7 +676,7 @@ void Replace_Special(char* string,char special){
 void* Gestione_Server(void* args){
     /*dichiarazione variabili*/
     int retvalue;
-    pthread_t client_thread[MAX_NUM_CLIENTS];
+    pthread_t client_thread[MAX_NUM_CLIENTS+1];
     struct sockaddr_in server_address, client_address;
     socklen_t client_length = sizeof(client_address);
 
@@ -749,7 +749,7 @@ void* scoring(void* args){
     //SVUOTO LA CLASSIFICA
     memset(classifica,0,strlen(classifica));
     
-    while (cnt != size){
+    while (cnt <= WL_Size(Scoring_List)){
         //aspetta che la coda abbia degli elementi da prendere
         if (WL_Size(Scoring_List)>0){
             //acquisisce mutex
@@ -765,7 +765,8 @@ void* scoring(void* args){
             global_score[cnt].points = atoi(token);
             //incremento il contatore
             cnt++;
-        }   
+        }
+        
     }
     //ordina l'array in base al più forte
     qsort(global_score,size, sizeof(giocatore), compare);
@@ -773,7 +774,7 @@ void* scoring(void* args){
     char msg[32];
     //CREO LA STRINGA DELLA CLASSIFICA
     for(int i =0;i<cnt;i++){
-        sprintf(msg,"user:%s\tpunteggio:%d\n",global_score[i].username,global_score[i].points);
+        sprintf(msg,"user:%s ,punteggio:%d\n,",global_score[i].username,global_score[i].points);
         //CONCATENO LA STRINGA ALLA CLASSIFICA
         strcat(classifica,msg);
     }
@@ -786,7 +787,7 @@ void* scoring(void* args){
     //RESTITUISCO LA MUTEX
     pthread_mutex_unlock(&player_mutex);
     //COMUNICO A TUTTI I THREAD CHE LA CLASSIFICA È PRONTA
-    for(int i = 0;i<size;i++){
+    for(int i = 0;i<Player_Size(Players);i++){
         //RECUPERO L'HANDLER
         pthread_t handler = Player_Peek_Hanlder(temp);
         //SCORRO LA LISTA

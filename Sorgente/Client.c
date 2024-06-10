@@ -160,9 +160,12 @@ void* bounce(void* args){
                     writef(retvalue,"Classifica non ancora disponibile");
                 }else{
                     writef(retvalue,"classifica finale\n");
-                    writef(retvalue,answer);
+                    char* token = strtok(answer,",");
+                    while(token!=NULL){
+                        writef(retvalue,token);
+                        token = strtok(NULL,",");
+                    }
                 }   
-                //writef(retvalue,"\n");
                 break;
 
             case MSG_ERR:
