@@ -28,21 +28,35 @@ int unwanted_termination = 0;
 char* matrice;
 int only_space_string(char* string);
 
+//GESTORE SEGNALI LATO CLIENT
 void gestione_terminazione_errata(int signum) {
     int retvalue;
     switch (signum){
+        //HO RICEVUTO UN SEGNALE DI TERMINAZIONE
         case SIGINT:
+            //SE IL SERVER STA GIà TERMINANDO LO IGNORO  
             if (unwanted_termination == 1)return;
+            //SE SONO IL MAIN THREAD LO GESTISCO
             if(pthread_self()== main_tid){
+                //STAMPA DI DEBUG
                 printf("sigint\n");
-                pthread_kill(merchant,SIGUSR2);
-                pthread_cancel(bouncer);
-                pthread_join(merchant,NULL);
+                //INVIO UN SEGNALE AL MERCHANT PER DIRGLI DI PREDISPOSRSI ALLA CHIUSURA
+                SYST(retvalue,pthread_kill(merchant,SIGUSR2),"avviso il merchant della chiusura");
+                //CANCELLO IL THREAD BOUNCER PERCHÈ NON STO ASPETTANDO NIENTE DAL SERVER
+                SYST(retvalue,pthread_cancel(bouncer),"ammazzo il bouncer");
+                //ASPETTO CHE IL MERCHANT ABBIA FINITO DI GESTIRE IL SEGNALE
+                SYST(retvalue,pthread_join(merchant,NULL),"aspetto il merchant");
+                //CHIUDO IL SOCKET DI COMUNICAZIONE
                 SYSC(retvalue,close(client_fd),"chiusura del client");
-                /*chiudo il socket*/
+                //TERMINO L'ESECUZIONE
                 exit(EXIT_SUCCESS);
             }
+            //SE NON SONO IL MAIN THREAD CONTINUO IL MIO FLUSSO D'ESECUZIONE
             else return;
+        //HO RICEVUTO UN SEGNALE DI TERMINAZIONE
+        //QUESTA GESTIONE È IDENTICA A QUELLA DEL SIGINT MA È STATA MESSA PER INDICARE CHE PER OGNI POSSIBILE SEGNALE CHE FA TERMINARE IL CLIENT È NECESSARIO FARLO CHIUDERE IN UNA CERTA
+        //MANIERA PER NON INCAPPARE NELL'ERRORE BROKEN PIPE LATO SERVER CHE CAUSA LA MORTE DEL SERVER 
+        //IL CODICE SEGUENTE NON VERRà COMMENTATO IN QUANTO È LA COPIA DI QUELLO DELLA GESTIONE SIGINT
         case SIGQUIT:
             if(pthread_self()== main_tid){
                 printf("sigint\n");
@@ -54,15 +68,19 @@ void gestione_terminazione_errata(int signum) {
                 exit(EXIT_SUCCESS);
             }
             else return;
-
+        //È ARRIVATO UN SEGNALE SIGUSR1, QUESTO SEGNALE VIENE MANDATO AL BOUNCER DAL MERCHANT PER TERMINARE L'ESECUZIONE UNA VOLTA RICEVUTO IL COMANDO FINE
         case SIGUSR1:
             pthread_exit(NULL);
             return;
+        //È ARRIVATO UN SEGNALE SIGUSR2, QUESTO SEGNALE VIENE MANDATO AL MERCHANT DAL MAIN THREAD PER COMUNICARE DI CHIUDERE LA CONNESSIONE
         case SIGUSR2:
+            //STAMPO ALL'UTENTE UN MESSAGGIO
             writef(retvalue,"Grazie per aver giocato\n");
             if (pthread_self()==merchant){
+                //COMUNICO AL SERVER CHE STO TERMINANDO IL CLIENT
                 Send_Message(client_fd,"chiudo",MSG_CHIUSURA_CONNESSIONE);
             }
+            //TERMINO L'ESECUZIONE
             pthread_exit(NULL);
             return;
     }
@@ -113,19 +131,21 @@ int main(int argc, char* argv[]){
     sigaction(SIGQUIT,&azione_segnale,NULL);
 
     main_tid = pthread_self();
-
+    //CREO I THREAD PER COMUNICARE COL SERVER
     SYST(retvalue,pthread_create(&bouncer,NULL,bounce,&client_fd),"nella creazione del bouncer");
     SYST(retvalue,pthread_create(&merchant,NULL,trade,&client_fd),"nella creazione del mercante");
+    //ASPETTO LA TERMINAZIONE DEI THREAD
     SYST(retvalue,pthread_join(bouncer,NULL),"attesa del bouncer");    
     SYST(retvalue,pthread_join(merchant,NULL),"attesa del mercante");
     /*chiudo il socket*/
 }
 
+//THREAD CHE RICEVE MESSAGGI DAL SERVER 
 void* bounce(void* args){
     int comm_fd = *(int*)args;
     char type = '0';
     int retvalue;
-    //aspetto la risposta del server
+    //ATTENDO UNA RISPOSTA DAL SERVER
     while (1){
         char* answer = Receive_Message(comm_fd,&type);
         switch(type){
@@ -137,27 +157,31 @@ void* bounce(void* args){
             
             case MSG_TEMPO_ATTESA:
                 //stampo al client la durata residua
-                writef(retvalue,"Durata residua pausa ");
+                writef(retvalue,"Tempo mancante alla prossima partita:");
                 writef(retvalue,answer);
                 break;
             
             case MSG_TEMPO_PARTITA:
-                writef(retvalue,"Durata residua partita ");
+                //STAMPO AL CLIENT LA DURATA RESIDUA DELLA PARTITA
+                writef(retvalue,"Tempo restante per la partita in corso:");
                 writef(retvalue,answer);
                 break;
             
             case MSG_PUNTI_PAROLA:
+                //STAMPO I PUNTI AL CLIENT
                 writef(retvalue,answer);
                 break;
             case MSG_PUNTEGGIO:
+                //STAMPO IL PUNTEGGIO AL CLIENT
                 writef(retvalue,answer);
                 break;
             case MSG_PUNTI_FINALI:
                 //scorer
-                
+                //SE LA CLASSIFICA NON È STATA STILATA COMUNICO CHE NON È DISPONIBILE
                 if (strcmp("stringa vuota",answer)==0){
-                    writef(retvalue,"Classifica non ancora disponibile");
+                    writef(retvalue,"Classifica non ancora disponibile\n");
                 }else{
+                    //ALTRIMENTI STAMPO LA CLASSIFICA COMPLETA ALL'UTENTE
                     writef(retvalue,"classifica finale\n");
                     char* token = strtok(answer,",");
                     while(token!=NULL){
@@ -176,19 +200,24 @@ void* bounce(void* args){
                 break;
 
             case MSG_CHIUSURA_CONNESSIONE:
+                //STAMPO IL MESSAGGIO DEL SERVER ALL'UTENTE
                 writef(retvalue,answer);
+                //SE STO GIà TERMINANDO A CAUSA DEL SERVER LO IGNORO
                 if (unwanted_termination == 1)return NULL;
-                //mando un SIGUSR1 al thread principale
+                //mando un SIGUSR1 al MERCHANT
                 SYST(retvalue,pthread_kill(merchant,SIGUSR1),"nell'avvisare il mercante della chiusura");
                 return NULL;
             case MSG_SIGINT:
+                //AVVISO L'UTENTE DEI PROBLEMI DEL SERVER
                 writef(retvalue,answer);
                 writef(retvalue,"non sarà possibile digitare altri comandi, ci scusiamo per il disagio\n");
+                //MEMORIZZO LO STATO DI TERMINAZIONE OBBLIGATA DAL SERVER 
                 unwanted_termination = 1;
                 SYST(retvalue,pthread_kill(merchant,SIGUSR1),"nell'avvisare il mercante della chiusura");
                 //return NULL;
         }
         //free(answer);
+        //STAMPA STANDARD
         writef(retvalue,"[PROMPT PAROLIERE]--> ");
     }
     
@@ -282,7 +311,7 @@ void* trade(void* args){
     }  
     return NULL;
 }
-
+//CONTROLLO SE LA STRINGA HA ALMENO UN CARATTERE
 int only_space_string(char* string){
     int spaces = 0;
     for(int i =0;i<strlen(string);i++){

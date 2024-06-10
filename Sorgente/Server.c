@@ -148,7 +148,7 @@ void gestore_segnale(int signum) {
                 //RECUPERO IL FILE DESCRIPTOR PER COMUNICARE AL CLIENT LA CHIUSURA
                 int death_sentence = L_Pop(&Client_List);
                 //COMUNICO AL CLIENT LA CHIUSURA
-                Send_Message(death_sentence,"Ci scusiamo per il disagio ma abbiamo risscontrato dei problemi e dobbiamo chiudere la connessione\nGrazie per aver Giocato\n",MSG_CHIUSURA_CONNESSIONE);
+                Send_Message(death_sentence,"Ci scusiamo per il disagio ma abbiamo riscontrato dei problemi e dobbiamo chiudere la connessione\nGrazie per aver Giocato\n",MSG_CHIUSURA_CONNESSIONE);
             }
             //RESTITUISCO LA MUTEX
             pthread_mutex_unlock(&client_mutex);
@@ -363,7 +363,6 @@ int main(int argc, char* argv[]){
     }
     return 0;
 }
-//
 /*FINE MAIN*/
 //
 
@@ -722,7 +721,7 @@ void Init_SIGMASK(){
     struct sigaction azione_SIGINT;
     sigset_t maschera_segnale;
     sigemptyset(&maschera_segnale);
-    //GGIUNGO IL SET PER SIGIINT SIGALARM SIGUSR1 E SIGUSR2
+    //AGGIUNGO IL SET PER SIGIINT SIGALARM SIGUSR1 E SIGUSR2
     SYSC(retvalue,sigaddset(&maschera_segnale,SIGINT),"aggiunta SIGINT alla maschera");
     SYSC(retvalue,sigaddset(&maschera_segnale,SIGALRM),"aggiunta di SIGALARM alla maschera");
     SYSC(retvalue,sigaddset(&maschera_segnale,SIGUSR1),"aggiunta di SIGUSR1 alla maschera");
