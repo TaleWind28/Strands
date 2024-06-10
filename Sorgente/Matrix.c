@@ -7,94 +7,12 @@
 #include <sys/wait.h>
 #include "../Header/macro.h"
 #include "../Header/Matrix.h"
-#include "../Header/Queue.h"
+#include "../Header/Stack.h"
 #include "../Header/Communication.h"
 
-/*CREA UNA MATRICE DATI IN INPUT IL NUMERO DI RIGHE E COLONNE E LA RITORNO*/
-Matrix Create_Matrix(int rows, int columns){
-    /*ALLOCO LA MATRICE CREANDO TANTI ARRAY DI CARATTERI QUANTE RIGHE*/
-    char** matrix = (char**)malloc(rows*sizeof(char*));
-    int size = rows*columns;
-    Charmap* map = (Charmap*)malloc(size*sizeof(Charmap));
-    map->size = size;
-    
-    /*ITERO SULLE RIGHE E PER OGNI RIGA ALLOCO UNA STRINGA CONTENENTE 1 SOLO CARATTERE*/
-    int k = 0;
-    
-    for(int i = 0;i<rows;i++){
-        for(int j = 0;j<columns;j++){
-            matrix[i] = (char*)malloc(columns*(sizeof(char)));
-            map[k].carattere = '0';
-            map[k].row =(int*)malloc(size*sizeof(int));
-            map[k].column =(int*)malloc(size*sizeof(int));
-            k++;
-        }
-    }
-    
-
-    /*MEMORIZZO LA MATRICE NELLA STRUTTURA DATI CREATA APPOSITAMENTE PER FACILITARE IL SUO UTILIZZO*/
-    Matrix m = {rows,columns,matrix,rows*columns,map};
-    /*INVOCO LA FUNZIONE ZEROS PER INIZIALIZZARE LA MATRICE*/
-    zeros(m);
-
-    return m;
-}
-
-/*INIZIALIZZA UNA MATRICE DI CARATTERI CON '0'*/
-void zeros(Matrix m){
-    for(int i = 0;i<m.rows;i++){
-        for(int j = 0;j<m.columns;j++){
-            m.matrix[i][j] = '0';
-        }
-    }
-    return;
-}
-
-/*RIEMPIO TUTTA LA MATRICE IN BASE ALLA STRINGA PASSATA*/
-void Fill_Matrix(Matrix m,char* letters){
-    /*ALLOCO UNA STRINGA PER SCORRERE I CARATTERI DI QUELLA PRINCIPALE*/
-    char* filling_row = (char*)malloc(m.columns*sizeof(char));
-    /*INDICI DEL CICLO*/
-    int i =0;int j = 0;
-    /*ITERO SU TUTTE LE RIGHE DELLA MATRICE*/
-    while(i<m.rows){
-        /*RIEMPIO FILLING ROW DI UN NUMERO DI ELEMENTI PARI ALLE COLONNE DELLA MATRICE*/
-        for(int i = 0;i<m.columns;i++){
-            filling_row[i] = letters[j];
-            j++;
-        }
-        //invoco fill row
-        Fill_Matrix_Row(m,i,filling_row);
-        i++;
-    }
-    return;
-}
-
-/*RIEMPIE UNA RIGA DELLA MATRICE*/
-void Fill_Matrix_Row(Matrix m,int row,char* letter){
-    for(int i = 0;i<m.columns;i++){
-        m.matrix[row][i] = letter[i];
-    }
-    return;
-}
-
-/*RENDO LA MATRICE UNA STRINGA PER SEMPLIFICARE LE COMUNICAZIONI*/
-char* Stringify_Matrix(Matrix m){
-    /*INDICE PER SCORRERE LA STRINGA DOVE AVRO LA MATRICE*/
-    int k = 0;
-    char* string =(char*)malloc(m.size);
-    for(int i =0;i<m.rows;i++){
-        for(int j = 0;j<m.columns;j++){
-            //printf("carattere:%c\n",m.matrix[i][j]);
-            string[k] = m.matrix[i][j];
-            k++;
-        }
-    }
-    return string;
-}
 
 /*CARICO NELLA MATRICE IL CONTENUTO DI UNA RIGA DI UN FILE*/
-void Load_Matrix(Matrix m, char* path_to_file,char exception,int* offset){
+char* Load_Matrix(char* path_to_file,char exception,int* offset){
     int fd,retvalue;char* buffer;
     
     /*APRO IL FILE IN BASE AL PATH PASSATO*/
@@ -103,26 +21,30 @@ void Load_Matrix(Matrix m, char* path_to_file,char exception,int* offset){
     /*LEGGO LA PRIMA RIGA DEL FILE*/
     buffer = File_Read(fd,exception,offset);
     Caps_Lock(buffer);
-    /*AGGIORNO LA MATRICE IN BASE ALLA LETTURA*/
-    
-    //writef(retvalue,buffer);
-    Adjust_String(buffer,exception);
-    Fill_Matrix(m,buffer);
     /*CHIUDO IL FILE*/
     SYSC(retvalue,close(fd),"nella chiusura del file descriptor");
-    return;
+
+    return buffer;
 }
 
- char* File_Read(int fd, char exception, int* offset){
+char* File_Read(int fd, char exception, int* offset){
     //18 è la lunghezza massima perchè 16 parole +\n +\0
-    char* buffer= (char*)malloc(17);
-    int retvalue;char carattere;
+    char* buffer = (char*)malloc(17);
+    int retvalue;char carattere;ssize_t n_read;
     /*mi posizioni nell'offset fornito*/
     SYSC(retvalue,lseek(fd,*offset,SEEK_SET),"nel setting dell'offset");
     /*leggo i caratteri della mia matrice*/
     for(int i =0;i<19;i++){
         /*leggo carattere per carattere*/
-        SYSC(retvalue,read(fd,&carattere,sizeof(char)),"nella lettura del carattere");
+        SYSC(n_read,read(fd,&carattere,sizeof(char)),"nella lettura del carattere");
+        if (n_read == 0){
+            SYSC(*offset,lseek(fd,0,SEEK_SET),"nel resettare l'offset");
+            break;
+        }
+        if (carattere == ' '){
+            i--;
+            continue;
+        }
         /*se trovo il \n esco*/
         if (carattere == '\n') break;
         Caps_Lock(&carattere);
@@ -134,10 +56,9 @@ void Load_Matrix(Matrix m, char* path_to_file,char exception,int* offset){
             continue;
         }
         buffer[i] = carattere;
-        printf("buffer:%s\n",buffer);
+        //printf("buffer:%s\n",buffer);
     }
     SYSC(*offset,lseek(fd,0,SEEK_CUR),"nella memorizzazione dell'offset");
-    //buffer = strtok(buffer,"\n");
     /*ritorno il buffer*/
     return buffer;
 }
@@ -154,265 +75,121 @@ void Adjust_String(char* string,char x){
     return;
 }
 
-int Is_Reachable(Matrix m,int* old_pos,int* pos){
-    if (old_pos[0] == -1) return 0;
-    /*stessa riga*/
-    if (((old_pos[1]+1 == pos[1]) || (old_pos[1]-1 == pos[1]))&&(old_pos[0] == pos[0])){
-            //printf("riga:%d,colonna:%d\n",old_pos[0],old_pos[1]);
-        return 0;
-    }
-    /*sono sulla stessa colonna,altrimenti mi sto muovendo in diagonale*/
-    if(((old_pos[0]+1 == pos[0]) || (old_pos[0]-1 == pos[0]))&&(old_pos[1] == pos[1])){
-        //printf("riga:%d,colonna:%d\n",old_pos[0],old_pos[1]);
-        return 0;
-    }
-    /*sono in una posizione illegale*/
-    return -1;
-}
-
-/*RIEMPIO LA MAPPATURA DEI CARATTERI DELLA MATRICE*/
-void Build_Charmap(Matrix m){
-    int k = 0;int inserted;
-    /*CICLO SU RIGHE E COLONNE DELLA MATRICE*/
-    for(int i =0;i<m.rows;i++){
-        for(int j = 0;j<m.columns;j++){
-            /*AZZERO LA VARIABILE CHE SEGNALA L'INSERIMENTO*/
-            inserted = 0;
-            /*CONTROLLO SE LA POSIZIONE ATTUALE È VUOTA*/
-            if(m.map[k].carattere == '0'){
-                /*STAMPA DI DEBUG*/
-                //printf("caso 1:carattere:%c\n",m.matrix[i][j]);
-                /*AGGIORNO IL CARATTERE*/
-                m.map[k].carattere = m.matrix[i][j];
-                /*INSERISCO LA POSIZIONE IN RIGHE E COLONNE IN BASE ALL'OCCORRENZA, IN QUESTO CASO È 0 PERCHÈ È LA PRIMA CHE INSERISCO*/
-                m.map[k].row[m.map[k].occorrenza] = i;
-                m.map[k].column[m.map[k].occorrenza] = j;
-                /*AGGIUNGO 1 ALL'OCCORRENZA*/
-                m.map[k].occorrenza=1;;
-                /*RIFERISCO CHE LA POSIZIONE È STATA INSERITA*/
-                inserted = 1;
-            }else{
-                /*CONTROLLO I CARATTERI GIà INSERITI*/
-                for(int k1 = k;k1>=0;k1--){
-                    /*CONTROLLO SE DEVO AUMENTARE L'OCCORRENZA*/
-                    if(m.map[k1].carattere == m.matrix[i][j]){
-                        /*AUMENTO L'OCCORRENZA ED AGGIORNO LE POSIZIONI*/
-                        m.map[k1].row[m.map[k1].occorrenza] = i;
-                        m.map[k1].column[m.map[k1].occorrenza] = j;
-                        m.map[k1].occorrenza++;
-                        inserted = 1;
-                        break;
-                    }
-                }
-            }
-            /*SE NON HO ANCORA TROVATO LA POSIZIONE VUOL DIRE CHE LA PROSSIMA SARà VUOTA*/
-            if(inserted == 0){
-                k++;
-                m.map[k].carattere = m.matrix[i][j];
-                m.map[k].row[m.map[k].occorrenza] = i;
-                m.map[k].column[m.map[k].occorrenza] = j;
-                m.map[k].occorrenza=1;
-            }
-        }
-    }
-    /*INVOCO LA ADJUST_CHARMAP PER RIDURRE L'OCCUPAZIONE DELLA MEMORIA*/
-    m.map = Adjust_Charmap(m.map);
-    /*INVOCO LA PRINT_CHARMAP PER STAMPARE LA MAPPATURA APPENA CREATA*/
-    //Print_CharMap(m);
-    return;
-}
-
-/*TROVA IL CARATTERE IN BASE ALLA MAPPATURA DELLA MATRICE*/
-Charmap Find_Charmap_Element(Matrix m,char x){
-    Charmap pos;
-    for(int i = 0;i<m.size;i++){
-        if (m.map[i].carattere == x){
-            pos.row = (int*)malloc(m.map[i].occorrenza*sizeof(int));
-            pos.column = (int*)malloc(m.map[i].occorrenza*sizeof(int));
-            pos.carattere = m.map[i].carattere;
-            for(int j = 0;j<m.map[i].occorrenza;j++){
-                //printf("indice j:%d\n",j);
-                pos.occorrenza = m.map[i].occorrenza;
-                pos.row[j] = m.map[i].row[j];
-                pos.column[j] = m.map[i].column[j];
-                //printf("%c riga: %d,colonna: %d\n",pos.carattere,pos.row[j],pos.column[j]);
-            }
-            return pos;
-        }
-    }
-    pos.occorrenza = 0; 
-    return pos;
-}
-
-
-
-/*LIBERO LO SPAZIO NON NECESSARIO PRECEDENTEMENTE ALLOCATO*/
-Charmap* Adjust_Charmap(Charmap* map){
-    //int i = 0;
-    for(int i =0;i<map->size;i++){
-        if (map[i].carattere == '0'){
-            map->size = i;
-            break;
-        }
-    }
-    /*DIMINUISCO LA MEMORIA ALLOCATA*/
-    map = realloc(map, map->size *sizeof(Charmap));
-    /*STAMPA PER DEBUGGING*/
-    //Print_CharMap(newmap);   
-    return map;
-}
-
-int Validate(Matrix m, char* word){
-    /*DICHIARO ED INIZIALIZZO LA LISTA*/
-    Position_List l = NULL;
-    /*VENGONO ACCETTATE SOLO STRINGHE LUNGHE ALMENO 4 CARATTERI*/
-    if (strlen(word)<4 ) return -1;
-    /*COSTRUISCO UNA MAPPATURA DI TUTTE LE OCCORRENZE DEL PRIMO CARATTERE NELLA MATRICE*/
-    Charmap start = Find_Charmap_Element(m,word[0]);
-    /*PROVO A COSTRUIRE LA PAROLA SULLA MATRICE*/
-    for(int i = 0;i<start.occorrenza;i++){
-        /*MI ASSICURO CHE LA LISTA SIA VUOTA*/
-        Delete_Position_List(&l);
-        /*INSERISCO L'IESIMA OCCORRENZA DEL PRIMO CARATTERE*/
-        Position_List_Push(&l,start.row[i],start.column[i]);
-        /*PROVO A VALIDARE CON L'IESIMA OCCORRENZA*/
-        Validation_Step(m,&l,word);
-        /*SE */
-        if (Position_List_Size(l)==strlen(word))return 0;
-    }
-    return -1;
-}
-
-void Validation_Step(Matrix m,Position_List* l,char * word){
-    for(int j = 1;j<strlen(word);j++){
-        int next_pos[2];
-        /*MAPPO LE OCCORENZE DEL PROSSIMO CARATTERE*/
-        Charmap found = Find_Charmap_Element(m,word[j]);
-        /*CICLO SU TUTTE LE SUE OCCORRENZE*/
-        for(int i=0;i<found.occorrenza;i++){
-            /*MEMORIZZO LA POSIZONE IN UNA VARIABILE PER CHIAMARE LA FUNZIONE IS_REACHABLE*/
-            next_pos[0] = found.row[i];
-            next_pos[1] = found.column[i];
-            /*controllo che la posizione del carattere sia raggiungibile e che la posizione non sia già presente in lista */
-            if ((Is_Reachable(m,Position_List_Peek(*l),next_pos)==0 ) && (Position_List_Find(*l,next_pos[0],next_pos[1]) != 0)){
-                /*AGGIUNGO IL NUOVO CARATTERE ALLA LISTA*/
-                Position_List_Push(l,next_pos[0],next_pos[1]);
-                break;
-            }
-        }
-    } 
-}
-
-
-
-/*INSERISCO UN ELEMENTO IN TESTA ALLA LISTA*/
-void Position_List_Push(Position_List* cl,int r, int c){
-    Position_Node* el = (Position_Node*)malloc(sizeof(Position_Node));
-    el->row = r;
-    el->col = c;
-    /*faccio puntare l'elemento alla testa della lista*/
-    el->next = *cl;
-    /*faccio puntare la testa della lista all'elemento*/
-    *cl= el;
-    return;
-}
-
-/*ESTRAGGO L'ELEMENTO IN TESTA ALLA LISTA*/
-void Position_List_Pop(Position_List* pl){
-    //int* popped = (int*)malloc(2*sizeof(int));
-    // popped[0] = (*cl)->row;
-    // popped[1] = (*cl)->col;
-    /*creo un nodo temporaneo*/
-    Position_Node* temp = *pl;
-    /*faccio puntare la testa della lista al prossimo elemento*/
-    *pl = (*pl)->next;
-    free(temp);
-
-    return;
-}
-
-/*CONTO GLI ELEMENTI DELLA LISTA*/
-int Position_List_Size(Position_List cl){
-    if (cl == NULL)return 0;
-    return 1+Position_List_Size(cl->next);
-}
-
-/*COMUNICO LA TESTA DELLA LISTA*/
-int* Position_List_Peek(Position_List cl){
-    if (cl == NULL)return 0;
-    int* head = (int*)malloc(2*sizeof(int));
-    head[0] = cl->row;
-    head[1] = cl->col;
-    return head;
-}
-
-/*CERCO UN ELEMENTO ALL'INTERNO DELLA LISTA*/
-int Position_List_Find(Position_List cl, int r, int c){
-    if(cl == NULL)return -1;
-    if(cl->row == r && cl->col == c)return 0;
-    return Position_List_Find(cl->next,r,c);
-}
-
-/*CANCELLO UNA LISTA*/
-int Delete_Position_List(Position_List* l){
-    if (*l == NULL) return 0;
-    if ((*l)->next == NULL){
-        Position_List_Pop(l);
-        return 0;
-        }
-    Position_Node* temp = *l;
-    *l = (*l)->next;
-    free(temp);
-    return Delete_Position_List(l);
-}
-
-/*FUNZIONI DI STAMPA*/
-
-/*STAMPO LA LISTA*/
-int Print_Position_List(Position_List cl){
-    if (cl == NULL) return 0;
-    printf("r:%d,c:%d\n",cl->row,cl->col);
-    return Print_Position_List(cl->next);
-}
-
-/*STAMPO IL VALORE DI RITORNO DI FIND_CHARMAP_ELEMENT*/
-void Print_FCE(Charmap position,char carattere){
-    for(int i= 0;i<position.occorrenza;i++){
-        printf("carattere:%c,riga:%d,colonna:%d\n",carattere,position.row[i],position.column[i]); 
-    }
-    return;
-}
-
-/*STAMPA A SCHERMO LA MAPPATURA DEI CARATTERI DELLA MATRICE*/
-void Print_CharMap(Charmap* map){
-    int retvalue;
-    char message[buff_size];
-    for(int i =0;i<map->size;i++){
-        sprintf(message,"%c:%d\n",map[i].carattere,map[i].occorrenza);
-        writef(retvalue,message);
-    }
-    return;
-}
-
 /*STAMPA LA MATRICE*/
-void Print_Matrix(Matrix m,char special, char exception){
+void Print_Matrix(char* m,int rows, int columns, char special){
     int retvalue;char message[buff_size];
-    
-    for(int i =0;i<m.rows;i++){
-        for(int j = 0;j<m.columns;j++){
+    for(int i =0;i<rows;i++){
+        for(int j = 0;j<columns;j++){     
             /*SCRIVO IN UN BUFFER L'ELEMENTO DELLA MATRICE*/
-            if (m.matrix[i][j] == special){
-                sprintf(message,"%c%c\t",exception,'U');
+            if (m[i*columns+j] == special){
+                writef(retvalue,"QU\t");
+            
             }
             else{
-                sprintf(message,"%c\t", m.matrix[i][j]);
+                sprintf(message,"%c\t", m[i*columns+j]);
+                writef(retvalue,message);
             }
-            /*SCRIVO A VIDEO L'ELEMENTO*/
-            writef(retvalue,message);
+            
         }
-        /*PASSO ALLA PROSSIMA RIGA*/
         writef(retvalue,"\n");
     }
 
     return;
+}
+
+// Funzione per creare un nuovo grafo
+Graph* createGraph(int Vertex) {
+    Graph* graph = (Graph*) malloc(sizeof(Graph));
+    //assegno il numero di vertici
+    graph->V = Vertex;
+    //alloco i nodi che conterranno i caratteri
+    graph->nodes = (char*) malloc(Vertex * sizeof(char));
+
+    // Allocazione della memoria per la lista di adiacenza
+    graph->adjList = (int**) malloc(Vertex * sizeof(int*));
+    for (int i = 0; i < Vertex; i++) {
+        //alloco per ogni elemento della lista di adiacenza Vertex interi
+        graph->adjList[i] = (int*) malloc(Vertex * sizeof(int));
+    }
+    //ritorno il grafo cosi creato
+    return graph;
+}
+
+// Funzione per aggiungere un arco al grafo
+void addEdge(Graph* graph, int src, int dest) {
+    graph->adjList[src][dest] = 1;
+}
+
+// Funzione di supporto per la DFS
+bool dfsUtil(Graph* graph, int current, char* word, int index, bool* visited) {
+    // Se abbiamo raggiunto la fine della parola, la parola è valida
+    if (word[index] == '\0')
+        return true;
+
+    // Segna il nodo corrente come visitato
+    visited[current] = true;
+
+    // Cerca tutti i nodi adiacenti non visitati
+    for (int i = 0; i < graph->V; i++) {
+        if (graph->adjList[current][i] == 1 && !visited[i] && graph->nodes[i] == word[index]) {
+            // Se troviamo una corrispondenza e il nodo non è stato visitato, continuiamo la ricerca
+            if (dfsUtil(graph, i, word, index + 1, visited))
+                return true;
+        }
+    }
+
+    // Se non c'è corrispondenza trovata o non esistono nodi adiacenti non visitati,
+    // marchiamo il nodo corrente come non visitato e restituiamo falso
+    visited[current] = false;
+    return false;
+}
+
+// Funzione per eseguire la DFS per validare una parola sul grafo
+bool dfs(Graph* graph, char* word) {
+    // Inizializza un array di booleani per tenere traccia dei nodi visitati
+    bool* visited = (bool*) malloc(graph->V * sizeof(bool));
+    memset(visited, false, graph->V * sizeof(bool));
+
+    // Ciclo sui nodi del grafo
+    for (int i = 0; i < graph->V; i++) {
+        // Se il nodo corrente corrisponde al primo carattere della parola e la DFS restituisce true, la parola è valida
+        if (graph->nodes[i] == word[0] && dfsUtil(graph, i, word, 1, visited))
+            return true;
+    }
+
+    // Se non viene trovata una corrispondenza per il primo carattere della parola, o se la DFS restituisce false, la parola non è valida
+    return false;
+}
+
+Graph* Build_Graph(char* matrix,int row, int column){
+    int V = strlen(matrix);
+    Graph* graph = createGraph(V);
+
+    // Associazione dei nodi con i caratteri della matrice
+    for (int i = 0; i < V; i++) {
+        graph->nodes[i] = matrix[i];
+    }
+
+    // Generazione dei collegamenti basati sulla matrice
+    for (int i = 0; i < row; i++) {
+        for (int j = 0; j < column; j++) {
+            int node = i * column + j;
+            //nodo superiore
+            if (i > 0){
+                addEdge(graph, node, (i - 1) * column + j); 
+            }
+            //nodo inferiore
+            if (i < row - 1){
+                addEdge(graph, node, (i + 1) * column + j);
+                }
+            //nodo sx
+            if (j > 0){ 
+                addEdge(graph, node, i * column + (j - 1)); // nodo a sinistra
+            }//nodo dx
+            if (j < column - 1){
+                addEdge(graph, node, i * column + (j + 1)); // nodo a destra
+            }
+        }
+    }
+    return graph;
 }
