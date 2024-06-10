@@ -79,6 +79,7 @@ Player_List Players;
 char* matrice_di_gioco;
 Trie* Dizionario;
 pthread_mutex_t player_mutex,scorer_mutex,client_mutex;
+pthread_cond_t scoring_cond;
 
 List Client_List;
 Graph* matrice_grafo;
@@ -102,17 +103,25 @@ void gestore_segnale(int signum) {
         //TERMINO IL THREAD CHE GESTISCE LE CONNESSIONI DEI CLIENT
         SYST(retvalue,pthread_cancel(jester),"nell'ammazzamento del jester");
         //IMPEDISCO AL SERVER DI ASCOLTARE I MESSAGGI DAI CLIENT
-        SYSC(retvalue,shutdown(server_fd,SHUT_RD),"nello shutdown"); 
+        //SYSC(retvalue,shutdown(server_fd,SHUT_RD),"nello shutdown"); 
         //CONTROLLO LO STATO DEL SERVER
         if (game_on == 1 && score_time == 0){
         //SE LA PARTITA È IN CORSO LA TERMINO PER STILARE LA CLASSIFICA
             unwanted_termination = 1;    
+            Player_List temp = Players;
+            for(int i =0;i<Player_Size(Players);i++){
+                pthread_t gest = Player_Peek_Hanlder(temp);
+                int comm_fd = Player_Retrieve_Socket(Players,gest);
+                Send_Message(comm_fd,"Ci scusiamo ma stiamo riscontrando dei problemi con la connessione, provvederemo a comunicare la classifica attuale\n",MSG_SIGINT);
+                temp = temp->next;
+            }
+            //CREO LO SCORER
+            pthread_create(&scorer,NULL,scoring,NULL);
             //GENERO UN SIGALARM
             alarm(1);
             //STAMPA DI DEBUG
             printf("mandato alarma\n");
-            //CREO LO SCORER
-            pthread_create(&scorer,NULL,scoring,NULL);
+            
             //E LO ASPETTO
             pthread_join(scorer,NULL);
         }
@@ -196,6 +205,7 @@ void gestore_segnale(int signum) {
                 time(&start_time);
                 //LIBERO LA MATRICE
                 free(matrice_di_gioco);
+                
                 //COMUNICO CHE BISOGNA GENERARE UN'ALTRO ROUND
                 game_starting = 0;
                 ready = 0;
@@ -211,15 +221,15 @@ void gestore_segnale(int signum) {
                     //MANDO UN SIGUSR1 DEFINITO DI SEGUITO
                     SYST(retvalue,pthread_kill(handler,SIGUSR1),"nell'avviso di mandare il punteggio allo scorer");
                     int fd2 = Player_Retrieve_Socket(temp,handler);
-                    if (unwanted_termination == 1) Send_Message(fd2,"Abbiamo incotrato dei problemi, provvederemo a communicare la classifica attuale\n",MSG_SIGINT);
-                    else Send_Message(fd2,time_string,MSG_TEMPO_ATTESA);
+                    Send_Message(fd2,time_string,MSG_TEMPO_ATTESA);
                     temp = temp->next;
                 }
                 //CONTROLLO CHE NON SIA ARRIVATO UN SIGINT, ED IN CASO NON FACCIO NIENTE PERCHÈ HO GIà CREATO LO SCORER
-                if(unwanted_termination == 1)break;
-                //CREO LO SCORER
-                SYST(retvalue,pthread_create(&scorer,NULL,scoring,NULL),"nella creazione dello scorer");
-                SYST(retvalue,pthread_detach(scorer),"nello staccare lo scorere");
+                if(unwanted_termination != 1){
+                    //CREO LO SCORER
+                    SYST(retvalue,pthread_create(&scorer,NULL,scoring,NULL),"nella creazione dello scorer");
+                    SYST(retvalue,pthread_detach(scorer),"nello staccare lo scorere");
+                }
                 //STAMPA DI DEBUG
                 printf("game off\n");
                 break;
@@ -238,6 +248,8 @@ void gestore_segnale(int signum) {
         char* username = Player_Retrieve_User(Players,pthread_self());
         //PRENDO IL PUNTEGGIO
         int points = Player_Retrieve_Score(Players,pthread_self());
+        //RESETTO IL PUNTEGGIO
+        Player_Update_Score(Players,pthread_self(),-points);
         //RESTITUISCO LA MUTEX
         pthread_mutex_unlock(&player_mutex);
         //PREPARO IL MESSAGGIO
@@ -249,11 +261,8 @@ void gestore_segnale(int signum) {
         //INSERISCO NELLA LISTA DELLO SCORER LA STRINGA APPENA COMPOSTA
         WL_Push(&Scoring_List,result);
         //RESTITUISCO LA MUTEX
+        pthread_cond_signal(&scoring_cond);
         pthread_mutex_unlock(&scorer_mutex);
-        //RESETTO IL PUNTEGGIO
-        pthread_mutex_lock(&player_mutex);
-        Player_Update_Score(Players,pthread_self(),-points);
-        pthread_mutex_unlock(&player_mutex);
     }
     //ARRIVA UN'ALTRO SEGNALE PERSONALIZZATO, LO MANDA LO SCORER
     if (signum == SIGUSR2){
@@ -316,6 +325,7 @@ int main(int argc, char* argv[]){
     SYST(retvalue,pthread_mutex_init(&player_mutex,NULL),"nell'inizializzazione della player mutex");
     SYST(retvalue,pthread_mutex_init(&client_mutex,NULL),"nell'inizializzazione della client mutex");
     SYST(retvalue,pthread_mutex_init(&scorer_mutex,NULL),"nell'inizializzazione della scorer mutex");
+    SYST(retvalue,pthread_cond_init(&scoring_cond,NULL),"inizializzo la cond variable")
     
     /*CREO UN THREAD PER GESTIRE LA CREAZIONE DEL SERVER ED IL DISPATCHING DEI THREAD*/
     SYST(retvalue,pthread_create(&jester,NULL,Gestione_Server,NULL),"nella creazione del giullare");
@@ -748,26 +758,23 @@ void* scoring(void* args){
     giocatore global_score[size];
     //SVUOTO LA CLASSIFICA
     memset(classifica,0,strlen(classifica));
-    
-    while (cnt <= WL_Size(Scoring_List)){
-        //aspetta che la coda abbia degli elementi da prendere
-        if (WL_Size(Scoring_List)>0){
-            //acquisisce mutex
-            pthread_mutex_lock(&scorer_mutex);
-            //rimuove il dato dalla pila
-            char* data = WL_Pop(&Scoring_List);
-            //restitusce mutex
-            pthread_mutex_unlock(&scorer_mutex);
-            //tokenizza la stringa per ottenere username e punteggio
-            char* token = strtok(data,",");
-            global_score[cnt].username = token;
-            token = strtok(NULL,",");
-            global_score[cnt].points = atoi(token);
-            //incremento il contatore
-            cnt++;
+    int retvalue;
+    printf("size:%d\n",size);
+    while(cnt < size){
+        writef(retvalue,"porcodio\n");
+        pthread_mutex_lock(&scorer_mutex);
+        while(Scoring_List == NULL){
+            pthread_cond_wait(&scoring_cond,&scorer_mutex);
         }
-        
+        char* data = WL_Pop(&Scoring_List);
+        char* token = strtok(data,",");
+        global_score[cnt].username = token;
+        token = strtok(NULL,",");
+        global_score[cnt].points = atoi(token);
+        pthread_mutex_unlock(&scorer_mutex);
+        cnt++;
     }
+    
     //ordina l'array in base al più forte
     qsort(global_score,size, sizeof(giocatore), compare);
     //AVENDO AL MASSIMO 32 GIOCATORI AVREMMO PER OGNI GIOCATORE 5(user)+10(username)+10(punteggio)+1(score) = 28 CARATTERI AL MASSIMO QUINDI IL NUMERO MAX È 28*32 = 896 MA NON MI FIDO DEI MIEI CONTI QUINDI ALLOCO 1024
@@ -779,7 +786,7 @@ void* scoring(void* args){
         strcat(classifica,msg);
     }
     printf("Classifica pronta\n");
-    int retvalue;
+    //int retvalue;
     //ACQUISISCO LA MUTEX
     pthread_mutex_lock(&player_mutex);
     //CREO UNA COPIA DELLA LISTA
@@ -796,6 +803,7 @@ void* scoring(void* args){
         SYST(retvalue,pthread_kill(handler,SIGUSR2),"nell'avviso di mandare il punteggio allo scorer");
     }
     //TERMINO LO SCORER
+    writef(retvalue,"no deadlock\n");
     return NULL;
 }
 

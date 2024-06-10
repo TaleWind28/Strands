@@ -32,6 +32,7 @@ void gestione_terminazione_errata(int signum) {
     int retvalue;
     switch (signum){
         case SIGINT:
+            if (unwanted_termination == 1)return;
             if(pthread_self()== main_tid){
                 printf("sigint\n");
                 pthread_kill(merchant,SIGUSR2);
@@ -226,7 +227,11 @@ void* trade(void* args){
                 writef(retvalue,"[PROMPT PAROLIERE]--> ");
                 continue;
             }
-            
+            if (strlen(token)>10){
+                writef(retvalue,"nome utente troppo lungo\n");
+                writef(retvalue,"[PROMPT PAROLIERE]--> ");
+                continue;
+            }
             if (token[0] == '\n'){
                 writef(retvalue,"nome utente troppo corto\n");
                 writef(retvalue,"[PROMPT PAROLIERE]--> ");
@@ -258,6 +263,7 @@ void* trade(void* args){
             continue;
         }
         if (strcmp(token,"fine\n")==0){
+            if (unwanted_termination == 1)break;
             //comunico al server che l'utente si sta disconnettendo
             Send_Message(comm_fd,"fine",MSG_CHIUSURA_CONNESSIONE);
             SYST(retvalue,pthread_kill(bouncer,SIGUSR2),"nell'avviso verso il bouncer della chiusura");
