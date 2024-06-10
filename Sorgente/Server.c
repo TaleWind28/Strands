@@ -31,7 +31,7 @@
 //Path al dizionario di Default
 #define DIZIONARIO "../Text/Dizionario.txt"
 
-#define DURATA_PAUSA 1 //60 secondi
+#define DURATA_PAUSA  60//60 secondi
 /*usata per debugging*/
 //#define DURATA_PARTITA 5//60 secondi
 #include <stdio.h>
@@ -140,7 +140,7 @@ void gestore_segnale(int signum) {
         //RESTITUISCO LA MUTEX
         pthread_mutex_unlock(&player_mutex);
         //SE LA TERMINAZIONE AVVIENE IN STATO DI PAUSA DEVO PULIRE LA LISTA DI CLIENT
-        if (unwanted_termination == 0){
+        //if (unwanted_termination == 0){
             //ACQUISISCO LA MUTEX
             pthread_mutex_lock(&client_mutex);
             //ELIMINO TUTTI I CLIENT
@@ -152,7 +152,7 @@ void gestore_segnale(int signum) {
             }
             //RESTITUISCO LA MUTEX
             pthread_mutex_unlock(&client_mutex);
-        }
+        //}
         //IN CASO ABBIA AVVIATO LO SCORER LO TERMINO
         if (score_time == 1 && unwanted_termination == 0)SYST(retvalue,pthread_cancel(scorer),"AMMAZZAVO LO SCORER");
         //writef(retvalue,"ammazzati tutti\n");
@@ -759,19 +759,27 @@ void* scoring(void* args){
     //SVUOTO LA CLASSIFICA
     memset(classifica,0,strlen(classifica));
     int retvalue;
-    printf("size:%d\n",size);
-    while(cnt < size){
-        writef(retvalue,"porcodio\n");
+    //CICLO FINCHÈ NON HO PRESO TUTTI GLI ELEMENTI DELLA CODA
+    while(cnt < Player_Size(Players)){
+        //ACQUSISCO MUTEX
         pthread_mutex_lock(&scorer_mutex);
+        //TESTO LA CONDITION VARIABLE FINCHÈ LA CODA È VUOTAX
         while(Scoring_List == NULL){
             pthread_cond_wait(&scoring_cond,&scorer_mutex);
         }
+        //RECUPERO IL MESSAGGIO IN TESTA ALLA CODA
         char* data = WL_Pop(&Scoring_List);
+        //TOKENIZZO PER OTTENERE L'USERNAME
         char* token = strtok(data,",");
+        //INSERISCO L'USERNAME NELL'ARRAY
         global_score[cnt].username = token;
+        //TOKENIZZO PER OTTENERE IL PUNTEGGIO
         token = strtok(NULL,",");
+        //INSERISCO IL PUNTEGGIO NELL'ARRAY
         global_score[cnt].points = atoi(token);
+        //RESTITUISCO LA MUTEX
         pthread_mutex_unlock(&scorer_mutex);
+        //INCREMENTO IL CONTATORE
         cnt++;
     }
     
@@ -786,7 +794,6 @@ void* scoring(void* args){
         strcat(classifica,msg);
     }
     printf("Classifica pronta\n");
-    //int retvalue;
     //ACQUISISCO LA MUTEX
     pthread_mutex_lock(&player_mutex);
     //CREO UNA COPIA DELLA LISTA

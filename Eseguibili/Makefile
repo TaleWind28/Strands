@@ -46,7 +46,7 @@ PORT2 = 30000
 HOST = 127.0.0.1
 
 #Test
-SERVER_RUN = ./$(SERVER) $(HOST) $(PORT) --matrici ../Text/Matrici.txt --durata 1 --diz ../Text/Dizionario.txt 
+SERVER_RUN = ./$(SERVER) $(HOST) $(PORT) --matrici ../Text/Matrici.txt --diz ../Text/Dizionario.txt 
 DEBUG-RUN = ./$(SERVER) $(HOST) $(PORT)  
 SERVER_RUN2 = ./$(SERVER) $(HOST) $(PORT2)  --durata 0.2 --seed 500
 CLIENT_RUN = ./$(CLIENT) $(HOST) $(PORT)
