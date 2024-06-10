@@ -41,7 +41,6 @@ void gestione_terminazione_errata(int signum) {
                 SYSC(retvalue,close(client_fd),"chiusura del client");
                 /*chiudo il socket*/
                 exit(EXIT_SUCCESS);
-                return;
             }
             else return;
         case SIGQUIT:
@@ -53,7 +52,6 @@ void gestione_terminazione_errata(int signum) {
                 SYSC(retvalue,close(client_fd),"chiusura del client");
                 /*chiudo il socket*/
                 exit(EXIT_SUCCESS);
-                return;
             }
             else return;
 

@@ -47,12 +47,10 @@ HOST = 127.0.0.1
 
 #Test
 SERVER_RUN = ./$(SERVER) $(HOST) $(PORT) --matrici ../Text/Matrici.txt --diz ../Text/Dizionario.txt 
-DEBUG-RUN = ./$(SERVER) $(HOST) $(PORT)  
-SERVER_RUN2 = ./$(SERVER) $(HOST) $(PORT2)  --durata 0.2 --seed 500
+SERVER_RUN2 = ./$(SERVER) $(HOST) $(PORT2)  --durata 2 --seed 500
 CLIENT_RUN = ./$(CLIENT) $(HOST) $(PORT)
 CLIENT_RUN2 = ./$(CLIENT) $(HOST) $(PORT2)
-#prova internet
-#./Server 0.0.0.0 2000 --matrici ../Text/Matrici.txt --diz ../Text/Dizionario.txt
+
 #Target
 all: $(SERVER) $(CLIENT) obj_clean
 
@@ -108,46 +106,3 @@ test-client:
 test-client2:
 	@echo client online
 	@$(CLIENT_RUN2)
-
-debug-client:
-	@echo client online
-	@gdb $(CLIENT_RUN)
-
-debug-server:
-	@echo server port $(PORT)
-	@gdb $(DEBUG-RUN)
-
-test-allC:
-	@echo client test
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)	
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)
-	@$(CLIENT_RUN)

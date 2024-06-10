@@ -168,7 +168,7 @@ void gestore_segnale(int signum) {
         write(1, "ricevuto segnale SIGALRM\n", 25);
         char* time_string;
         //IN BASE ALLO STATO FACCIO COSE DIVERSE
-        //NON HO BISOGNO DI CONTROLLARE CHE THREAD RISPONDE AL SEGNALE PERCHÈ IL SIGALARM VIENE INVIATO SOO AL THREAD CHE ISTANZIA L'ALLARME CHE È IL MAIN
+        //NON HO BISOGNO DI CONTROLLARE CHE THREAD RISPONDE AL SEGNALE PERCHÈ IL SIGALARM VIENE INVIATO SOLO AL THREAD CHE ISTANZIA L'ALLARME CHE È IL MAIN
         switch(game_on){
             //STATO DI PAUSA
             case 0:
@@ -659,6 +659,7 @@ void Choose_Action(int comm_fd, char type,char* input,Word_List* already_guessed
             Send_Message(comm_fd,classifica,MSG_PUNTI_FINALI);
     }
 }
+
 //RIMPIAZZO UN CARATTERE CON IL CARATTERE SPECIALE
 void Replace_Special(char* string,char special){
     //MEMORIZZO LA LUNGHEZZA DELLA STRINGA
@@ -738,6 +739,7 @@ void Init_SIGMASK(){
     sigaction(SIGUSR2,&azione_SIGINT,NULL);
     return;
 }
+
 //FUNZIONE PER USARE IL QSORT
 int compare(const void *a, const void *b) {
     //CREO 2 GIOCATORI DA CONFRONTARE
@@ -747,6 +749,7 @@ int compare(const void *a, const void *b) {
     if(playerB->points<playerA->points)return -1;
     else return 1;
 }
+
 //THREAD SCORER
 void* scoring(void* args){
     //INIZIALIZZO UNA VARIABILE CONTATORE
