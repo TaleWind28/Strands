@@ -31,7 +31,7 @@
 //Path al dizionario di Default
 #define DIZIONARIO "../Text/Dizionario.txt"
 
-#define DURATA_PAUSA  60//60 secondi
+#define DURATA_PAUSA  2//60 secondi
 /*usata per debugging*/
 //#define DURATA_PARTITA 5//60 secondi
 #include <stdio.h>
@@ -40,7 +40,7 @@
 
 typedef struct {
     char* matrix_file;
-    int durata_partita;
+    float durata_partita;
     long seed;
     char* file_dizionario;
 }Parametri;
@@ -317,7 +317,7 @@ int main(int argc, char* argv[]){
     Dizionario = create_node();
     /*INIZIALIZZO LA MATRICE DI GIOCO*/
     matrice_di_gioco =(char*)malloc(16*sizeof(char)); 
-    main_tid  = pthread_self();
+    main_tid  = pthread_self(); 
     //carico il dizionario in memoria
     Load_Dictionary(Dizionario,parametri_server.file_dizionario);
     writef(retvalue,"server_online\n");

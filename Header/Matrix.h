@@ -37,3 +37,6 @@ void Adjust_String(char* string,char x);
 
 /*STAMPA LA MATRICE*/
 void Print_Matrix(char* m,int NUM_ROWS,int NUM_COLUMNS,char special);
+
+// Funzione per stampare il grafo
+void printGraph(Graph* graph);

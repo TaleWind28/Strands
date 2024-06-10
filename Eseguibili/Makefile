@@ -43,6 +43,7 @@ SRCT = $(SORGENTE)$(TRIE).c
 #Input
 PORT = 20000
 PORT2 = 30000
+PORT3 = 40000
 HOST = 127.0.0.1
 
 #Test
@@ -50,6 +51,8 @@ SERVER_RUN = ./$(SERVER) $(HOST) $(PORT) --matrici ../Text/Matrici.txt --diz ../
 SERVER_RUN2 = ./$(SERVER) $(HOST) $(PORT2)  --durata 2 --seed 500
 CLIENT_RUN = ./$(CLIENT) $(HOST) $(PORT)
 CLIENT_RUN2 = ./$(CLIENT) $(HOST) $(PORT2)
+SCORER_RUN = ./$(SERVER) $(HOST) $(PORT3) --durata 0.00278
+SCORER_CLIENT = ./$(CLIENT) $(HOST) $(PORT3)
 
 #Target
 all: $(SERVER) $(CLIENT) obj_clean
@@ -98,7 +101,13 @@ run-server:
 run-server2:
 	@echo server port $(PORT2)
 	@$(SERVER_RUN2)
-	
+
+run-scorer:
+	@echo test-scorer on port 40000
+	@$(SCORER_RUN)
+test-scorer:
+	@echo client-scorer
+	@$(SCORER_CLIENT)
 test-client:
 	@echo client online
 	@$(CLIENT_RUN)

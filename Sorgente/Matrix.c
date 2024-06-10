@@ -193,3 +193,16 @@ Graph* Build_Graph(char* matrix,int row, int column){
     }
     return graph;
 }
+
+// Funzione per stampare il grafo
+void printGraph(Graph* graph) {
+    for (int v = 0; v < graph->V; ++v) {
+        printf("Nodo %c: ", graph->nodes[v]);
+        for (int u = 0; u < graph->V; ++u) {
+            if (graph->adjList[v][u]) {
+                printf("%c ", graph->nodes[u]);
+            }
+        }
+        printf("\n");
+    }
+}
