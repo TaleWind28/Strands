@@ -44,6 +44,7 @@ void gestione_terminazione_errata(int signum) {
                 SYST(retvalue,pthread_kill(merchant,SIGUSR2),"avviso il merchant della chiusura");
                 //CANCELLO IL THREAD BOUNCER PERCHÈ NON STO ASPETTANDO NIENTE DAL SERVER
                 SYST(retvalue,pthread_cancel(bouncer),"ammazzo il bouncer");
+                //pthread_join(bouncer,NULL);
                 //ASPETTO CHE IL MERCHANT ABBIA FINITO DI GESTIRE IL SEGNALE
                 SYST(retvalue,pthread_join(merchant,NULL),"aspetto il merchant");
                 //CHIUDO IL SOCKET DI COMUNICAZIONE
@@ -51,6 +52,7 @@ void gestione_terminazione_errata(int signum) {
                 //TERMINO L'ESECUZIONE
                 exit(EXIT_SUCCESS);
             }
+            //pthread_exit(NULL);
             //SE NON SONO IL MAIN THREAD CONTINUO IL MIO FLUSSO D'ESECUZIONE
             else return;
         //HO RICEVUTO UN SEGNALE DI TERMINAZIONE

@@ -31,7 +31,7 @@
 //Path al dizionario di Default
 #define DIZIONARIO "../Text/Dizionario.txt"
 
-#define DURATA_PAUSA  2//60 secondi
+#define DURATA_PAUSA  60//60 secondi
 /*usata per debugging*/
 //#define DURATA_PARTITA 5//60 secondi
 #include <stdio.h>
