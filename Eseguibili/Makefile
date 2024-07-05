@@ -93,7 +93,7 @@ obj_clean:
 	@echo file oggetto rimossi
 other_clean:
 	@rm -f $(HEADER-FILES)
-	@echo file .gch rimossi
+
 clear: 
 	@rm -f $(OBJECT-FILES) $(SERVER) $(CLIENT)
 
