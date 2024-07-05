@@ -13,6 +13,7 @@
 #include <signal.h>
 #include <pthread.h>
 #include <errno.h>
+#include <termios.h>
 #include "../Header/macro.h"
 #include "../Header/Matrix.h"
 #include "../Header/Stack.h"
@@ -27,6 +28,9 @@ pthread_t bouncer,merchant,main_tid;
 int unwanted_termination = 0;
 char* matrice;
 int only_space_string(char* string);
+char type_sent;
+pthread_cond_t awaiting_answer;
+pthread_mutex_t user_mutex;
 
 //GESTORE SEGNALI LATO CLIENT
 void gestione_terminazione_errata(int signum) {
@@ -132,6 +136,9 @@ int main(int argc, char* argv[]){
     sigaction(SIGUSR2,&azione_segnale,NULL);
     sigaction(SIGQUIT,&azione_segnale,NULL);
 
+    pthread_cond_init(&awaiting_answer,NULL);
+    pthread_mutex_init(&user_mutex,NULL);
+    
     main_tid = pthread_self();
     //CREO I THREAD PER COMUNICARE COL SERVER
     SYST(retvalue,pthread_create(&bouncer,NULL,bounce,&client_fd),"nella creazione del bouncer");
@@ -161,21 +168,39 @@ void* bounce(void* args){
                 //stampo al client la durata residua
                 writef(retvalue,"Tempo mancante alla prossima partita:");
                 writef(retvalue,answer);
+                if (type_sent == MSG_MATRICE){
+                    /*per testare la mutua esclusione sullo stdin*/
+                    //sleep(2);
+                    //writef(retvalue,"prima di unlockare\n");
+                    pthread_mutex_unlock(&user_mutex);
+                }
                 break;
             
             case MSG_TEMPO_PARTITA:
                 //STAMPO AL CLIENT LA DURATA RESIDUA DELLA PARTITA
                 writef(retvalue,"Tempo restante per la partita in corso:");
                 writef(retvalue,answer);
+                if (type_sent == MSG_MATRICE){
+                    //writef(retvalue,"prima di unlockare\n");
+                    /*per testare la mutua esclusione prima di unlockare*/
+                    //sleep(2);
+                    pthread_mutex_unlock(&user_mutex);
+                }
                 break;
             
             case MSG_PUNTI_PAROLA:
                 //STAMPO I PUNTI AL CLIENT
                 writef(retvalue,answer);
+                if (type_sent == MSG_PAROLA){
+                    pthread_mutex_unlock(&user_mutex);
+                }
                 break;
             case MSG_PUNTEGGIO:
                 //STAMPO IL PUNTEGGIO AL CLIENT
                 writef(retvalue,answer);
+                if (type_sent == MSG_PUNTEGGIO){
+                    pthread_mutex_unlock(&user_mutex);
+                }
                 break;
             case MSG_PUNTI_FINALI:
                 //scorer
@@ -190,17 +215,19 @@ void* bounce(void* args){
                         writef(retvalue,token);
                         token = strtok(NULL,",");
                     }
-                }   
+                }
+                pthread_mutex_unlock(&user_mutex); 
                 break;
 
             case MSG_ERR:
                 writef(retvalue,answer);
+                pthread_mutex_unlock(&user_mutex);
                 break;
             
             case MSG_OK:
                 writef(retvalue,answer);
+                pthread_mutex_unlock(&user_mutex);
                 break;
-
             case MSG_CHIUSURA_CONNESSIONE:
                 //STAMPO IL MESSAGGIO DEL SERVER ALL'UTENTE
                 writef(retvalue,answer);
@@ -231,7 +258,8 @@ void* trade(void* args){
     int retvalue;ssize_t n_read;
     char input_buffer[buff_size];
     while(1){
-        
+        pthread_mutex_lock(&user_mutex);
+        tcflush(STDIN_FILENO, TCIFLUSH);
         SYSC(n_read,read(STDIN_FILENO,input_buffer,buff_size),"nella lettura da stdin");
         char* input = (char*)malloc(n_read+1);
         
@@ -240,7 +268,10 @@ void* trade(void* args){
         char* token = strtok(input," ");
         if (strcmp(token,"aiuto\n")==0){
             writef(retvalue,HELP_MESSAGE);
+            //writef(retvalue,"ho unlockato\n");
             writef(retvalue,"[PROMPT PAROLIERE]--> ");
+            pthread_mutex_unlock(&user_mutex);
+            
             continue;
         }
         if (strcmp(token,"registra_utente")==0 || strcmp(token,"registra_utente\n")==0){
@@ -267,11 +298,14 @@ void* trade(void* args){
                 continue;
             }
             //invio al server il messaggio con le credenziali per la registrazione
+            type_sent = MSG_REGISTRA_UTENTE;
             Send_Message(comm_fd,token,MSG_REGISTRA_UTENTE);
             continue;
         }
         if (strcmp(token,"matrice\n")==0){
             //invio al server la richiesta della matrice
+            type_sent = MSG_MATRICE;
+             ;
             Send_Message(comm_fd,"matrice",MSG_MATRICE);
             continue;
         }
@@ -288,6 +322,7 @@ void* trade(void* args){
                 //rendo maiuscola la stringa
                 Caps_Lock(token);
                 //invio al server la parola
+                type_sent = MSG_PAROLA;
                 Send_Message(comm_fd,token,MSG_PAROLA);
             continue;
         }
@@ -295,15 +330,18 @@ void* trade(void* args){
             if (unwanted_termination == 1)break;
             //comunico al server che l'utente si sta disconnettendo
             Send_Message(comm_fd,"fine",MSG_CHIUSURA_CONNESSIONE);
+            pthread_mutex_unlock(&user_mutex);
             SYST(retvalue,pthread_kill(bouncer,SIGUSR2),"nell'avviso verso il bouncer della chiusura");
             SYSC(retvalue,close(client_fd),"nella chiusura del client per scelta utente");
             return NULL;
         }
         if (strcmp(token,"score\n")==0){
+            type_sent = MSG_PUNTEGGIO;
             Send_Message(comm_fd,"punti",MSG_PUNTEGGIO);
             continue;
         }
         if (strcmp(token,"classifica\n")==0){
+            type_sent = MSG_PUNTI_FINALI;
             Send_Message(comm_fd,"classifica",MSG_PUNTI_FINALI);
             continue;
         }

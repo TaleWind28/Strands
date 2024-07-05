@@ -51,7 +51,7 @@ SERVER_RUN = ./$(SERVER) $(HOST) $(PORT) --matrici ../Text/Matrici.txt --diz ../
 SERVER_RUN2 = ./$(SERVER) $(HOST) $(PORT2)  --durata 2 --seed 500
 CLIENT_RUN = ./$(CLIENT) $(HOST) $(PORT)
 CLIENT_RUN2 = ./$(CLIENT) $(HOST) $(PORT2)
-SCORER_RUN = ./$(SERVER) $(HOST) $(PORT3) --durata 0.00278
+SCORER_RUN = ./$(SERVER) $(HOST) $(PORT3) --durata 0.003 --matrici ../Text/Matrici.txt
 SCORER_CLIENT = ./$(CLIENT) $(HOST) $(PORT3)
 
 #Target
