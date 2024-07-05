@@ -95,7 +95,7 @@ other_clean:
 	@rm -f $(HEADER-FILES)
 
 clear: 
-	@rm -f $(OBJECT-FILES) $(SERVER) $(CLIENT)
+	@rm -f $(OBJECT-FILES) $(HEADER-FILE) $(SERVER) $(CLIENT)
 
 run-server:
 	@echo server port $(PORT)
