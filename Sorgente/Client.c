@@ -262,7 +262,6 @@ void* trade(void* args){
         tcflush(STDIN_FILENO, TCIFLUSH);
         SYSC(n_read,read(STDIN_FILENO,input_buffer,buff_size),"nella lettura da stdin");
         char* input = (char*)malloc(n_read+1);
-        
         strncpy(input,input_buffer,n_read);
         input[n_read] = '\0';
         char* token = strtok(input," ");
