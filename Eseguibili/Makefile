@@ -14,7 +14,7 @@ HDRS2 = $(HEADER)$(MATRICI).h
 HDRS3 = $(HEADER)$(PILE).h
 HDRS4 = $(HEADER)$(COMMS).h
 HDRS5 = $(HEADER)$(TRIE).h
-
+HEADER-FILES = $(HDRS1).gch $(HDRS2).gch $(HDRS3).gch $(HDRS4).gch $(HDRS5).gch
 
 #Eseguibili
 SERVER = Server
@@ -55,7 +55,7 @@ SCORER_RUN = ./$(SERVER) $(HOST) $(PORT3) --durata 0.003 --matrici ../Text/Matri
 SCORER_CLIENT = ./$(CLIENT) $(HOST) $(PORT3)
 
 #Target
-all: $(SERVER) $(CLIENT) obj_clean
+all: $(SERVER) $(CLIENT) obj_clean other_clean
 
 #Dipendenze file Eseguibili
 $(SERVER): $(OBJS)
@@ -91,6 +91,9 @@ $(OBJHT): $(SRCT) $(HDRS5)
 obj_clean:
 	@rm -f $(OBJECT-FILES)
 	@echo file oggetto rimossi
+other_clean:
+	@rm -f $(HEADER-FILES)
+	@echo file .gch rimossi
 clear: 
 	@rm -f $(OBJECT-FILES) $(SERVER) $(CLIENT)
 
