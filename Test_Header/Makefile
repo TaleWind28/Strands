@@ -12,7 +12,7 @@ SORGENTE = ../Sorgente/
 HDRS = $(HEADER)$(MATRICI).h
 HDRS2 = $(HEADER)$(COMMS).h
 HDRS3 = $(HEADER)$(TRIE).h
-
+HEADER-FILES = $(HDRS).gch $(HDRS2).gch $(HDRS3).gch
 #Eseguibili
 MATRICI = Matrix
 TEST = test_matrix
@@ -42,7 +42,7 @@ COMMON = ./$(TEST) 4 4 oveclihceolratou
 UNCOMMON = ./$(TEST) 4 4 atlcioquadvesisbi
 
 #Target
-all: $(TEST) $(TEST2) $(TEST3) obj_clean
+all: $(TEST) $(TEST2) $(TEST3) obj_clean other_clean
 #Test_Matrix
 $(TEST): $(OBJT)
 	@echo matrici
@@ -86,6 +86,9 @@ obj_clean:
 
 clear:
 	rm -f $(OBJM) $(OBJT) $(TEST) $(OBJC) $(OBJT2) $(TEST2)
+
+other_clean:
+	@rm -f $(HEADER-FILES)
 
 test-w:
 	# $(COMMON) chilo
